@@ -21,9 +21,10 @@
             measurementId: "G-ZFNYWV4BFB"
         };
         
-        // --- INFORMAÇÕES PIX (ESTÁTICAS - SUBSTITUA) ---
-        const CHAVE_PIX_ESTATICA = "SUA-CHAVE-PIX-AQUI"; // <--- COLOQUE SUA CHAVE PIX AQUI
-        const NOME_BENEFICIARIO = "Nome da Empresa LTDA"; // <--- NOME DO BENEFICIÁRIO
+        // --- INFORMAÇÕES PIX (ESTÁTICAS - SUBSTITUA AQUI) ---
+        // Você PODE usar uma chave estática (e-mail, telefone, CPF, CNPJ) aqui.
+        const CHAVE_PIX_ESTATICA = "guibroer@hotmail.com"; // <-- SUBSTITUA
+        const NOME_BENEFICIARIO = "Guilherme Veras Bröer"; // <-- SUBSTITUA
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -34,12 +35,6 @@
         const getProjectIdFromUrl = () => {
             const params = new URLSearchParams(window.location.search);
             const id = params.get('id');
-            
-            // --- LOG DE DEBUG NA COMPRA.HTML ---
-            console.log("COMPRA.HTML DEBUG: URL completa:", window.location.href);
-            console.log("COMPRA.HTML DEBUG: ID lido da URL:", id);
-            // ------------------------------------
-
             return id ? id.trim() : null;
         };
 
@@ -64,7 +59,7 @@
                 const projectSnap = await getDoc(projectRef);
 
                 if (!projectSnap.exists()) {
-                    container.innerHTML = `<p class="text-red-500 text-lg">Projeto com ID ${docId} não encontrado no banco de dados. Verifique a coleção e as regras do Firestore.</p>`;
+                    container.innerHTML = `<p class="text-red-500 text-lg">Projeto com ID ${docId} não encontrado no banco de dados.</p>`;
                     return;
                 }
 
@@ -74,7 +69,7 @@
                 const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 const comodosDetalhe = formatComodosList(projeto.listaComodos);
 
-                // 2. Renderiza os detalhes e o PIX
+                // 2. Renderiza os detalhes e o PIX Estático
                 container.innerHTML = `
                     <h2 class="text-3xl font-extrabold text-indigo-700 mb-6">${title}</h2>
                     
@@ -87,25 +82,33 @@
                         </div>
                     </div>
 
-                    <div class="bg-white p-6 rounded-lg shadow-xl border-2 border-indigo-200">
-                        <h3 class="text-2xl font-bold text-indigo-700 mb-4">Opção de Pagamento: PIX</h3>
+                    <div id="payment-section" class="bg-white p-6 rounded-lg shadow-xl border-2 border-indigo-200 text-center">
+                        <h3 class="text-2xl font-bold text-indigo-700 mb-4">Opção de Pagamento: PIX (Chave Estática)</h3>
                         
                         <div class="text-center mb-6">
-                            <img src="https://placehold.co/200x200/5E35B1/ffffff?text=QR+Code+PIX" alt="QR Code PIX" class="mx-auto border p-2 rounded-lg mb-4">
+                            <img src="https://placehold.co/200x200/5E35B1/ffffff?text=CHAVE+ESTATICA" alt="QR Code PIX" class="mx-auto border p-2 rounded-lg mb-4"/>
                         </div>
 
-                        <div class="space-y-3 text-gray-700">
+                        <div class="space-y-3 text-gray-700 text-left md:text-center">
                             <p><strong>Beneficiário:</strong> ${NOME_BENEFICIARIO}</p>
-                            <p><strong>Chave PIX:</strong> <span class="font-mono bg-gray-100 p-1 rounded">${CHAVE_PIX_ESTATICA}</span></p>
                             <p><strong>Valor a Pagar:</strong> <span class="text-green-600 font-bold">${valorFormatado}</span></p>
+                            <p class="mt-4">
+                                <strong>Chave PIX (Copia e Cola):</strong>
+                                <span id="pixCode" class="font-mono bg-gray-100 p-2 rounded block mt-1 break-all">${CHAVE_PIX_ESTATICA}</span>
+                            </p>
                         </div>
 
-                        <button onclick="navigator.clipboard.writeText('${CHAVE_PIX_ESTATICA}')" class="mt-6 w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-colors">
+                        <button 
+                            onclick="navigator.clipboard.writeText(document.getElementById('pixCode').textContent)" 
+                            class="mt-6 w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-colors shadow-md"
+                        >
                             Copiar Chave PIX
                         </button>
-                        <p class="text-xs text-center text-gray-500 mt-2">O valor total de **${valorFormatado}** deve ser transferido para a chave acima. Após o pagamento, envie o comprovante.</p>
+                        <p class="text-xs text-center text-gray-500 mt-3">
+                            Transfira o valor exato de **${valorFormatado}** para a chave acima. 
+                            <br>Envie o comprovante de pagamento por WhatsApp para liberação.
+                        </p>
                     </div>
-
                 `;
 
             } catch (error) {
