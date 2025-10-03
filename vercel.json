@@ -7,7 +7,6 @@
     }
   ],
   "routes": [
-    // 1. Rota para a API do Mercado Pago
     {
       "src": "/create_payment",
       "methods": [
@@ -15,12 +14,10 @@
       ],
       "dest": "server.js"
     },
-    // 2. Rota explícita para o caminho raiz (homepage)
     {
       "src": "/",
       "dest": "/index.html"
     },
-    // 3. Rota catch-all para servir qualquer outro arquivo estático (compra.html, JS, CSS, etc.)
     {
       "src": "/(.*)",
       "dest": "/$1" 
