@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfólio | Instagram Style</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilo customizado para o Toggle Switch (para garantir compatibilidade) */
+        .toggle-checkbox:checked {
+            right: 0;
+            background-color: #4f46e5; /* indigo-600 */
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #e0e7ff; /* indigo-100 */
+        }
+    </style>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, onSnapshot, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDUQq0J96QQpGSbEXrnLjnsSCSGTzQlVns",
+            authDomain: "galeria-do-site-duplicado.firebaseapp.com",
+            projectId: "galeria-do-site-duplicado",
+            storageBucket: "galeria-do-site-duplicado.firebasestorage.app",
+            messagingSenderId: "717918810787",
+            appId: "1:717918810787:web:01c7cbc1a1b7b880bb8516",
+            measurementId: "G-ZFNYWV4BFB"
+        };
+        
+        // --- Firebase Initialization ---
+        let db, auth;
+        const state = {
+            photos: [], // Todos os projetos brutos do Firebase
+            currentFilter: 'all' // Novo estado de filtro: 'all', 'arquitetura', 'interiores'
+        };
+        let currentCarouselPhotos = [];
+        let currentImageIndex = 0;
+
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+        
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                await signInAnonymously(auth);
+            }
+            setupListeners();
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+        });
+
+        // --- UI Functions ---
+        const showMessage = (message, type = 'info') => {
+            const messageBox = document.getElementById('message-box');
+            messageBox.textContent = message;
+            messageBox.className = 'p-3 mb-4 rounded-md text-white transition-opacity duration-300';
+            
+            if (type === 'success') {
+                messageBox.classList.add('bg-green-500');
+            } else if (type === 'error') {
+                messageBox.classList.add('bg-red-500');
+            } else {
+                messageBox.classList.add('bg-blue-500');
+            }
+            
+            messageBox.classList.remove('opacity-0', 'hidden');
+            setTimeout(() => {
+                messageBox.classList.add('opacity-0');
+                setTimeout(() => messageBox.classList.add('hidden'), 300);
+            }, 3000);
+        };
+        
+        // Função para formatar a lista de cômodos
+        const formatComodosList = (listaComodos) => {
+            if (!listaComodos || listaComodos.length === 0) {
+                return 'N/A';
+            }
+            return listaComodos.map(item => `${item.comodo} (${item.quantidade})`).join(', ');
+        };
+
+        // --- NOVA FUNÇÃO DE FILTRAGEM ---
+        window.toggleProjects = () => {
+            const isChecked = document.getElementById('toggleSwitch').checked;
+            
+            // 1. Atualiza o estado do filtro e o texto
+            if (isChecked) {
+                state.currentFilter = 'arquitetura';
+                document.getElementById('toggleLabelText').textContent = 'Arquitetura';
+            } else {
+                state.currentFilter = 'interiores';
+                document.getElementById('toggleLabelText').textContent = 'Interiores';
+            }
+            
+            // 2. Renderiza a galeria com o novo filtro
+            renderGallery();
+        };
+
+        const renderGallery = () => {
+            const container = document.getElementById('photo-gallery');
+            container.innerHTML = '';
+            
+            // Lógica de Filtragem
+            const filteredProjects = state.photos.filter(projeto => {
+                const tipo = projeto.tipoProjeto || '';
+                
+                if (state.currentFilter === 'arquitetura') {
+                    return tipo.toLowerCase().includes('arquitetônico');
+                }
+                if (state.currentFilter === 'interiores') {
+                    return tipo.toLowerCase().includes('interiores');
+                }
+                // Se 'all' for o padrão, retorna todos (útil para debug ou outros estados)
+                return true; 
+            });
+
+            if (filteredProjects.length === 0) {
+                 container.innerHTML = `
+                    <div class="col-span-3 text-center py-20">
+                        <p class="text-xl text-gray-500">Nenhum projeto encontrado para "${document.getElementById('toggleLabelText').textContent}".</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            filteredProjects.forEach(projeto => {
+                const photoCard = document.createElement('div');
+                
+                photoCard.classList.add('relative', 'bg-white', 'border', 'border-gray-200', 'cursor-pointer', 'transform', 'hover:scale-[1.01]', 'transition-all', 'shadow-md', 'overflow-hidden');
+                
+                photoCard.onclick = () => window.showPortfolioImages(projeto.id);
+                
+                const previewImage = projeto.images && projeto.images.length > 0 ? projeto.images[0].url : 'https://placehold.co/600x400/0095f6/ffffff?text=Projeto';
+                
+                const tipoProjeto = projeto.tipoProjeto || 'Projeto';
+                const comodosResumo = formatComodosList(projeto.listaComodos);
+                const valorFormatado = (projeto.valorProjeto || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                
+                photoCard.innerHTML = `
+                    <div class="w-full aspect-square bg-gray-200 overflow-hidden">
+                        <img src="${previewImage}" alt="${tipoProjeto}" class="w-full h-full object-cover">
+                    </div>
+                    
+                    <div class="absolute inset-0 bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity flex flex-col justify-center items-center p-4 text-white text-center">
+                        <p class="font-bold text-lg">${tipoProjeto}</p>
+                        <p class="text-sm my-1">${comodosResumo}</p>
+                        <p class="text-sm font-semibold text-green-300">${valorFormatado}</p>
+                    </div>
+                `;
+                container.appendChild(photoCard);
+            });
+        };
+        
+        const setupListeners = () => {
+            if (!auth.currentUser) {
+                console.error("Usuário não autenticado. Não é possível configurar o listener do Firestore.");
+                return;
+            }
+            const q = query(collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`), orderBy('timestamp', 'desc'));
+            onSnapshot(q, (querySnapshot) => {
+                state.photos = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Configura o filtro inicial para "Interiores" (o estado inicial do toggle)
+                state.currentFilter = 'interiores';
+                document.getElementById('toggleSwitch').checked = false; // Garante que o estado visual está correto
+                document.getElementById('toggleLabelText').textContent = 'Interiores';
+
+                renderGallery(); // Renderiza a galeria com o filtro inicial
+            }, (error) => {
+                console.error("Erro no listener de snapshot:", error);
+                showMessage('Erro ao carregar projetos. Verifique as permissões.', 'error');
+            });
+        };
+        
+        // --- MODAL DE VISUALIZAÇÃO (MANTIDO) ---
+        window.showPortfolioImages = (docId) => {
+            const portfolioItem = state.photos.find(p => p.id === docId);
+            if (!portfolioItem || !portfolioItem.images || portfolioItem.images.length === 0) {
+                showMessage('Nenhuma imagem encontrada para este projeto.', 'info');
+                return;
+            }
+            
+            currentCarouselPhotos = portfolioItem.images;
+            currentImageIndex = 0;
+
+            const viewerTitle = document.getElementById('viewer-title');
+            const projectDetails = document.getElementById('project-details'); 
+            const projectDetailsMobile = document.getElementById('project-details-mobile'); 
+            const thumbnailsContainer = document.getElementById('carousel-thumbnails');
+
+            viewerTitle.textContent = portfolioItem.tipoProjeto || 'Detalhes do Projeto';
+            
+            const valorFormatado = (portfolioItem.valorProjeto || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const comodosDetalhe = formatComodosList(portfolioItem.listaComodos);
+
+            const detailsHTML = `
+                <h4 class="text-xl font-bold mb-3 text-indigo-300">${portfolioItem.tipoProjeto || 'Projeto'}</h4>
+                <p class="text-sm mb-3">
+                    <strong class="text-indigo-400">Valor Estimado:</strong> ${valorFormatado}
+                </p>
+                <p class="text-sm mb-3">
+                    <strong class="text-indigo-400">Cômodos:</strong> ${comodosDetalhe}
+                </p>
+                <div class="border-t border-gray-700 pt-3">
+                    <strong class="text-indigo-400 block mb-1">Descrição:</strong>
+                    <p class="text-xs text-gray-300 whitespace-pre-wrap">${portfolioItem.descricaoProjeto || 'Nenhuma descrição fornecida.'}</p>
+                </div>
+            `;
+            
+            projectDetails.innerHTML = `<div class="bg-gray-800 p-4 rounded-lg shadow-inner text-white w-full max-w-sm ml-4 hidden lg:block">${detailsHTML}</div>`;
+            projectDetailsMobile.innerHTML = detailsHTML;
+            
+            thumbnailsContainer.innerHTML = '';
+            currentCarouselPhotos.forEach((image, index) => {
+                const thumbElement = document.createElement('img');
+                thumbElement.src = image.url;
+                thumbElement.alt = `Thumbnail ${index + 1}`;
+                thumbElement.classList.add('w-20', 'h-20', 'object-cover', 'rounded-md', 'cursor-pointer', 'transition-all', 'duration-300', 'border-2', 'border-transparent', 'hover:border-indigo-500');
+                thumbElement.onclick = () => window.jumpToImage(index);
+                thumbnailsContainer.appendChild(thumbElement);
+            });
+
+            window.updateCarousel();
+            document.getElementById('image-viewer-modal').classList.remove('hidden');
+        };
+        
+        window.updateCarousel = () => {
+            const mainImage = document.getElementById('main-carousel-image');
+            const thumbnails = document.getElementById('carousel-thumbnails').children;
+
+            if (currentCarouselPhotos.length > 0) {
+                mainImage.src = currentCarouselPhotos[currentImageIndex].url;
+                mainImage.alt = `Imagem ${currentImageIndex + 1} de ${currentCarouselPhotos.length}`;
+
+                for (let i = 0; i < thumbnails.length; i++) {
+                    thumbnails[i].classList.remove('border-indigo-500');
+                    if (i === currentImageIndex) {
+                        thumbnails[i].classList.add('border-indigo-500');
+                    }
+                }
+            }
+        };
+
+        window.prevImage = () => {
+            if (currentCarouselPhotos.length > 0) {
+                currentImageIndex = (currentImageIndex - 1 + currentCarouselPhotos.length) % currentCarouselPhotos.length;
+                window.updateCarousel();
+            }
+        };
+
+        window.nextImage = () => {
+            if (currentCarouselPhotos.length > 0) {
+                currentImageIndex = (currentImageIndex + 1) % currentCarouselPhotos.length;
+                window.updateCarousel();
+            }
+        };
+
+        window.jumpToImage = (index) => {
+            if (index >= 0 && index < currentCarouselPhotos.length) {
+                currentImageIndex = index;
+                window.updateCarousel();
+            }
+        };
+
+        window.closeImageViewerModal = () => {
+            document.getElementById('image-viewer-modal').classList.add('hidden');
+        };
+
+        window.onload = () => {};
+    </script>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <div id="loading" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500 mx-auto"></div>
+            <p class="mt-4 text-gray-600">Carregando galeria...</p>
+        </div>
+    </div>
+
+    <div id="app-container" class="container mx-auto p-0 md:p-8 space-y-12 max-w-5xl hidden">
+        
+        <header class="bg-white border-b border-gray-300 p-4 sticky top-0 z-10">
+            <div class="flex flex-col sm:flex-row items-center justify-between">
+                <h1 class="text-2xl font-semibold text-gray-800 tracking-wider mb-2 sm:mb-0">
+                    PORTFÓLIO ARQ. & INTERIORES
+                </h1>
+                
+                <div class="flex items-center space-x-3 bg-gray-50 p-2 rounded-full border border-gray-200 shadow-inner">
+                    <span class="text-sm font-medium text-gray-500">Filtrar por:</span>
+                    
+                    <div class="relative inline-block w-20 select-none transition duration-200 ease-in">
+                        <input
+                            type="checkbox"
+                            name="toggle"
+                            id="toggleSwitch"
+                            class="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 appearance-none cursor-pointer shadow-md transition-all duration-300"
+                            onchange="window.toggleProjects()"
+                            checked="false"
+                        />
+                        <label
+                            for="toggleSwitch"
+                            class="toggle-label block overflow-hidden h-8 rounded-full bg-indigo-100 cursor-pointer"
+                        ></label>
+                        
+                        <span id="toggleLabelText" class="absolute top-1/2 transform -translate-y-1/2 left-2 text-xs font-bold text-gray-600 transition-all duration-300 pointer-events-none">
+                            Interiores
+                        </span>
+                        <span class="absolute top-1/2 transform -translate-y-1/2 right-2 text-xs font-bold text-white opacity-0 transition-all duration-300 pointer-events-none">
+                            Arquitetura
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div id="message-box" class="opacity-0 hidden"></div>
+        </header>
+
+        <section class="bg-white p-0">
+            <div 
+                id="photo-gallery" 
+                class="grid grid-cols-3 sm:grid-cols-3 gap-1 bg-white border border-gray-300"
+            >
+                </div>
+        </section>
+
+    </div>
+
+    <div id="image-viewer-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-90 z-50 flex items-center justify-center p-4">
+        <div class="w-full max-w-7xl max-h-[95vh] overflow-hidden relative flex flex-col">
+            
+            <button onclick="window.closeImageViewerModal()" class="absolute top-4 right-4 text-white hover:text-indigo-400 transition-colors z-50 p-2 rounded-full bg-gray-900 bg-opacity-50 hover:bg-opacity-75">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            
+            <div class="flex flex-col lg:flex-row items-start flex-grow justify-between">
+                
+                <div class="w-full lg:hidden bg-gray-800 p-4 rounded-b-lg mb-4 text-white">
+                    <h3 id="viewer-title" class="text-xl font-bold mb-2"></h3>
+                    <div id="project-details-mobile" class="text-sm">
+                        </div>
+                </div>
+
+                <h3 id="viewer-title" class="text-xl font-bold text-white mb-4 text-center absolute top-4 left-1/2 transform -translate-x-1/2 z-50 p-2 bg-gray-900 bg-opacity-50 rounded-lg hidden lg:block"></h3>
+
+                <div class="flex w-full h-full">
+
+                    <div class="relative flex-grow flex items-center justify-center p-4">
+                        <button onclick="window.prevImage()" class="absolute left-0 lg:left-4 z-20 p-3 rounded-full bg-gray-900 bg-opacity-50 text-white hover:bg-opacity-75 transition-colors focus:outline-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+
+                        <img id="main-carousel-image" src="" alt="Imagem Principal" class="max-w-full h-auto max-h-[80vh] object-contain rounded-lg">
+                        
+                        <button onclick="window.nextImage()" class="absolute right-0 lg:right-4 z-20 p-3 rounded-full bg-gray-900 bg-opacity-50 text-white hover:bg-opacity-75 transition-colors focus:outline-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div id="project-details" class="hidden lg:block">
+                        </div>
+
+                </div>
+
+            </div>
+            
+            <div class="bg-gray-800 bg-opacity-75 w-full p-3 flex-shrink-0">
+                <div id="carousel-thumbnails" class="flex justify-center items-center overflow-x-auto w-full space-x-2">
+                    </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
