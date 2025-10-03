@@ -21,10 +21,9 @@
             measurementId: "G-ZFNYWV4BFB"
         };
         
-        // --- INFORMAÇÕES PIX (ESTÁTICAS - SUBSTITUA AQUI) ---
-        // Você PODE usar uma chave estática (e-mail, telefone, CPF, CNPJ) aqui.
-        const CHAVE_PIX_ESTATICA = "guibroer@hotmail.com"; // <-- SUBSTITUA
-        const NOME_BENEFICIARIO = "Guilherme Veras Bröer"; // <-- SUBSTITUA
+        // --- VARIÁVEIS GERAIS ---
+        const API_URL = window.location.origin; // Domínio do Vercel
+        const PAYMENT_ENDPOINT = '/create_payment'; // Endpoint do seu server.js
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -45,6 +44,88 @@
             return listaComodos.map(item => `${item.comodo} (${item.quantidade})`).join(', ');
         };
 
+        // --- FUNÇÃO DE PAGAMENTO (CHAMA A API) ---
+        window.createPixPayment = async (projeto) => {
+            const pixOutput = document.getElementById('pix-output');
+            const btn = document.getElementById('generatePixButton');
+
+            btn.disabled = true;
+            pixOutput.innerHTML = '<p class="text-indigo-500">Gerando QR Code e Chave PIX. Aguarde...</p>';
+
+            // Dados Fictícios do Pagador (MOCK): ESSENCIAIS para a API do MP
+            const payerData = {
+                email: "comprador_pix@wrarquitetura.com", 
+                first_name: "Comprador",
+                last_name: "Teste",
+                identification: {
+                    type: "CPF",
+                    number: "11111111111" // CPF/CNPJ de Teste Válido (para produção, use dados reais)
+                }
+            };
+            
+            // Corpo da requisição para o seu server.js
+            const paymentBody = {
+                transaction_amount: projeto.valorProjeto,
+                description: `Projeto: ${projeto.tipoProjeto || 'Sem Nome'}`,
+                payment_method_id: 'pix', // Indica que queremos PIX
+                payer: payerData,
+            };
+
+            try {
+                const response = await fetch(`${API_URL}${PAYMENT_ENDPOINT}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(paymentBody),
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.qr_code_base64) {
+                    // SUCESSO: Exibe o QR Code e a chave
+                    const valorFormatado = projeto.valorProjeto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    
+                    pixOutput.innerHTML = `
+                        <h3 class="text-xl font-bold text-green-600 mt-4 mb-2">Pagamento PIX Gerado!</h3>
+                        
+                        <img src="data:image/jpeg;base64,${data.qr_code_base64}" 
+                            alt="QR Code PIX" 
+                            class="mx-auto border p-2 rounded-lg mb-4 w-40 h-40 shadow-md"/>
+                        
+                        <div class="space-y-2 text-gray-700">
+                            <p>
+                                <strong>Valor:</strong> 
+                                <span class="text-green-600 font-bold">${valorFormatado}</span>
+                            </p>
+                            <p>
+                                <strong>Chave Copia e Cola:</strong>
+                                <span id="pixCode" class="font-mono bg-gray-100 p-1 rounded block break-all mt-1">${data.qr_code_text}</span>
+                            </p>
+                            <button onclick="navigator.clipboard.writeText(document.getElementById('pixCode').textContent)" class="py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-colors">
+                                Copiar Chave PIX
+                            </button>
+                        </div>
+                        <p class="text-sm text-center text-red-500 mt-3">
+                            Este QR Code é dinâmico e expira em 30 minutos.
+                        </p>
+                    `;
+                    btn.classList.add('hidden'); // Esconde o botão após gerar
+                } else {
+                    // ERRO DA API
+                    console.error("Erro do Backend/Mercado Pago:", data.error);
+                    pixOutput.innerHTML = `<p class="text-red-500">Falha na geração do PIX. Erro: ${data.error || 'Desconhecido'}</p>`;
+                    btn.disabled = false;
+                }
+
+            } catch (e) {
+                console.error("Erro de conexão com o Vercel:", e);
+                pixOutput.innerHTML = `<p class="text-red-500">Falha ao conectar com o servidor da API. Verifique o status do deploy do server.js.</p>`;
+                btn.disabled = false;
+            }
+        };
+
+        // --- RENDERIZAÇÃO DA PÁGINA ---
         const renderPurchasePage = async (docId) => {
             const container = document.getElementById('purchase-container');
             
@@ -59,7 +140,7 @@
                 const projectSnap = await getDoc(projectRef);
 
                 if (!projectSnap.exists()) {
-                    container.innerHTML = `<p class="text-red-500 text-lg">Projeto com ID ${docId} não encontrado no banco de dados.</p>`;
+                    container.innerHTML = `<p class="text-red-500 text-lg">Projeto com ID ${docId} não encontrado.</p>`;
                     return;
                 }
 
@@ -69,7 +150,7 @@
                 const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 const comodosDetalhe = formatComodosList(projeto.listaComodos);
 
-                // 2. Renderiza os detalhes e o PIX Estático
+                // Renderiza o botão que chama createPixPayment()
                 container.innerHTML = `
                     <h2 class="text-3xl font-extrabold text-indigo-700 mb-6">${title}</h2>
                     
@@ -83,41 +164,27 @@
                     </div>
 
                     <div id="payment-section" class="bg-white p-6 rounded-lg shadow-xl border-2 border-indigo-200 text-center">
-                        <h3 class="text-2xl font-bold text-indigo-700 mb-4">Opção de Pagamento: PIX (Chave Estática)</h3>
+                        <h3 class="text-2xl font-bold text-indigo-700 mb-4">Gerar Pagamento PIX</h3>
+                        <p class="text-gray-600 mb-4">Clique abaixo para gerar o QR Code único para o valor de **${valorFormatado}**.</p>
                         
-                        <div class="text-center mb-6">
-                            <img src="https://placehold.co/200x200/5E35B1/ffffff?text=CHAVE+ESTATICA" alt="QR Code PIX" class="mx-auto border p-2 rounded-lg mb-4"/>
-                        </div>
-
-                        <div class="space-y-3 text-gray-700 text-left md:text-center">
-                            <p><strong>Beneficiário:</strong> ${NOME_BENEFICIARIO}</p>
-                            <p><strong>Valor a Pagar:</strong> <span class="text-green-600 font-bold">${valorFormatado}</span></p>
-                            <p class="mt-4">
-                                <strong>Chave PIX (Copia e Cola):</strong>
-                                <span id="pixCode" class="font-mono bg-gray-100 p-2 rounded block mt-1 break-all">${CHAVE_PIX_ESTATICA}</span>
-                            </p>
-                        </div>
-
                         <button 
-                            onclick="navigator.clipboard.writeText(document.getElementById('pixCode').textContent)" 
-                            class="mt-6 w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-colors shadow-md"
+                            id="generatePixButton" 
+                            onclick='window.createPixPayment(${JSON.stringify(projeto)})' 
+                            class="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors shadow-lg disabled:opacity-50"
                         >
-                            Copiar Chave PIX
+                            Gerar QR Code PIX
                         </button>
-                        <p class="text-xs text-center text-gray-500 mt-3">
-                            Transfira o valor exato de **${valorFormatado}** para a chave acima. 
-                            <br>Envie o comprovante de pagamento por WhatsApp para liberação.
-                        </p>
+                        <div id="pix-output" class="mt-4"></div>
                     </div>
                 `;
 
             } catch (error) {
                 console.error("Erro ao carregar o projeto:", error);
-                container.innerHTML = `<p class="text-red-500 text-lg">Erro ao carregar os dados. Verifique a conexão com o Firebase: ${error.message}</p>`;
+                container.innerHTML = `<p class="text-red-500 text-lg">Erro ao carregar os dados. Verifique a conexão com o Firebase.</p>`;
             }
         };
 
-        // Função que aguarda a autenticação antes de buscar dados
+        // Função que inicia o processo
         const loadPurchaseData = () => {
              onAuthStateChanged(auth, async (user) => {
                 if (!user) {
@@ -128,7 +195,6 @@
             });
         }
 
-        // Inicia o carregamento dos dados
         loadPurchaseData();
     </script>
 </head>
