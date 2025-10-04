@@ -1,88 +1,96 @@
 // Importa os módulos necessários
 const express = require('express');
-const bodyParser = require('body-parser');
-const mercadopago = require('mercadopago');
-const cors = require('cors'); // Habilita o CORS para permitir requisições do front-end
+const { MercadoPagoConfig, Payment } = require('mercadopago');
+const cors = require('cors');
+
+// ATENÇÃO: Assegure-se de que o pacote 'crypto' ou 'uuid' está instalado se for usar crypto.randomUUID().
+// Se não, remova o requestOptions que usa essa função.
 
 // Cria uma nova aplicação Express
 const app = express();
-const port = 3000; // Porta do servidor
+const port = 3000;
 
 // Use middlewares
-app.use(bodyParser.json());
-app.use(cors()); // Habilita o CORS para todas as origens (ajuste em produção)
+app.use(cors()); // Habilita o CORS para permitir requisições do front-end
+app.use(express.json()); // Usar express.json() em vez de body-parser.json() para versões recentes do Express
 
 // Configura o Mercado Pago com sua chave de acesso.
-// ATENÇÃO: Substitua 'SUA_CHAVE_DE_ACESSO_AQUI' pela sua chave real do Mercado Pago.
-const mp = new mercadopago.MercadoPagoConfig({
-  accessToken: 'TEST-8155657262249649-091319-a2647f3eeb5a3e68df32ae7aeac4ce0e-290268833',
-});
+// --- APLICANDO CREDENCIAL DE PRODUÇÃO ---
+const ACCESS_TOKEN_PRODUCAO = 'APP_USR-8155657262249649-091319-ee52419ad3994e7b101524cd6c6fd5ee-290268833';
 
-// Endpoint para criar um pagamento via Pix ou Cartão de Crédito
+const client = new MercadoPagoConfig({
+    accessToken: ACCESS_TOKEN_PRODUCAO,
+});
+const paymentService = new Payment(client); // Cria a instância do serviço de pagamento
+
+// --- Endpoint para criar pagamento PIX ---
 app.post('/create_payment', async (req, res) => {
     try {
-        const { transaction_amount, description, payer, payment_method_id } = req.body;
+        // Recebe os dados do front-end
+        const { transaction_amount, description, payer } = req.body;
 
-        let paymentResult;
+        const paymentData = {
+            transaction_amount: Number(transaction_amount),
+            description: description || 'Pagamento de Projeto WR Arquitetura',
+            payment_method_id: 'pix',
+            payer: {
+                email: payer.email,
+                first_name: payer.first_name,
+                last_name: payer.last_name,
+                identification: payer.identification
+            }
+        };
 
-        if (payment_method_id === 'pix') {
-            // Lógica para pagamento via Pix
-            const paymentData = {
-                transaction_amount: Number(transaction_amount),
-                description: description,
-                payment_method_id: 'pix',
-                payer: {
-                    email: payer.email,
-                    first_name: payer.first_name,
-                    last_name: payer.last_name,
-                    identification: {
-                        type: 'CPF',
-                        number: payer.identification.number
-                    }
-                }
-            };
-            paymentResult = await mp.payment.create({ body: paymentData });
-            
-            // Retorna o QR Code e o código para o front-end
-            const qrCodeBase64 = paymentResult.body.point_of_interaction.transaction_data.qr_code_base64;
-            const qrCodeText = paymentResult.body.point_of_interaction.transaction_data.qr_code;
-            res.json({ qr_code_base64: qrCodeBase64, qr_code_text: qrCodeText });
+        // NOTA: Removida a lógica condicional de credit_card e a dependência de crypto.randomUUID()
+        // para simplificar e focar apenas no PIX, que é o objetivo principal.
 
-        } else if (payment_method_id === 'credit_card') {
-            // Lógica para pagamento via Cartão de Crédito
-            const paymentData = {
-                transaction_amount: Number(transaction_amount),
-                description: description,
-                payment_method_id: 'master', // Exemplo de ID de método de pagamento
-                installments: 1, // Exemplo de parcelas
-                payer: {
-                    email: payer.email,
-                    first_name: payer.first_name,
-                    last_name: payer.last_name,
-                    identification: {
-                        type: 'CPF',
-                        number: payer.identification.number
-                    }
-                }
-            };
-            paymentResult = await mp.payment.create({ body: paymentData });
+        const result = await paymentService.create({ body: paymentData });
 
-            // Retorna o resultado para o front-end (informações de aprovação, etc.)
-            res.json({ status: paymentResult.body.status, status_detail: paymentResult.body.status_detail });
-        } else {
-            res.status(400).json({ error: 'Método de pagamento não suportado' });
-        }
-
-        console.log("Pagamento criado com sucesso:", paymentResult.body.id);
+        // Retorna os dados necessários para o frontend
+        res.json({
+            success: true,
+            payment_id: result.id,
+            status: result.status,
+            qr_code_base64: result.point_of_interaction?.transaction_data?.qr_code_base64,
+            qr_code_text: result.point_of_interaction?.transaction_data?.qr_code
+        });
 
     } catch (error) {
-        console.error("Erro ao criar o pagamento:", error);
-        res.status(500).json({ error: 'Erro ao processar o pagamento' });
+        console.error('Erro ao criar pagamento PIX:', error);
+        
+        // Se for um erro do Mercado Pago (com status), retorna o status do erro
+        const mpError = error.cause && error.cause.length > 0 ? error.cause[0] : null;
+
+        res.status(500).json({
+            success: false,
+            error: mpError ? `${mpError.code}: ${mpError.description}` : 'Erro interno ao processar o pagamento'
+        });
     }
 });
 
-// Inicia o servidor
-app.listen(port, () => {
-    console.log(`Servidor rodando em http://localhost:${port}`);
-    console.log("Pressione Ctrl+C para parar o servidor.");
+// --- Endpoint para verificar status do pagamento (MANTIDO) ---
+app.get('/payment_status/:payment_id', async (req, res) => {
+    try {
+        const { payment_id } = req.params;
+        const result = await paymentService.get({ id: payment_id });
+        
+        res.json({
+            success: true,
+            status: result.status,
+            status_detail: result.status_detail
+        });
+    } catch (error) {
+        console.error('Erro ao verificar status do pagamento:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+
+// O Vercel define a porta automaticamente através da variável de ambiente 'PORT'
+app.listen(process.env.PORT || port, () => {
+    console.log(`Servidor rodando na porta ${process.env.PORT || port}`);
+    console.log("ATENÇÃO: Credenciais de PRODUÇÃO ativas.");
 });
