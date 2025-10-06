@@ -26,8 +26,7 @@
         const API_BASE_URL = 'https://pagamento-de-projetosvercelapp-wellingtons-projects-02014e31.vercel.app'; 
         const PAYMENT_ENDPOINT = '/create_payment'; 
         
-        // ID REAL DO SEU PROJETO - CORRIGIDO
-        const FIXED_PROJECT_ID = 'prj_R2yYDVHLnxLHNgHKL3RGtZevHKxc'; 
+        // ID Fixo REMOVIDO: const FIXED_PROJECT_ID = '...'; 
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -35,7 +34,12 @@
         
         // --- Funções de Ajuda ---
         
-        // Função original getProjectIdFromUrl foi removida
+        // RESTAURADO: Obtém o ID do projeto na URL
+        const getProjectIdFromUrl = () => {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+            return id ? id.trim() : null;
+        };
         
         const formatComodosList = (listaComodos) => {
             if (!listaComodos || listaComodos.length === 0) {
@@ -85,7 +89,7 @@
             `;
         };
 
-        // --- FUNÇÃO DE PAGAMENTO ---
+        // --- FUNÇÃO DE PAGAMENTO (inalterada) ---
         window.createPixPayment = async (projeto) => {
             const form = document.getElementById('payerForm');
             const pixOutputContainer = document.getElementById('pix-output-container'); 
@@ -216,12 +220,21 @@
             }
         };
 
-        // --- RENDERIZAÇÃO DA PÁGINA (USANDO ID FIXO) ---
+        // --- RENDERIZAÇÃO DA PÁGINA (USA ID da URL) ---
         const renderPurchasePage = async (docId) => {
             const container = document.getElementById('purchase-container');
             
+            // RESTAURADO: Tratamento de erro se o ID não estiver na URL
+            if (!docId) {
+                container.innerHTML = `
+                    <p class="text-red-500 text-lg font-bold">ERRO: Projeto não encontrado.</p>
+                    <p class="text-gray-600 mt-2">O ID do projeto (documento Firestore) é obrigatório e deve ser passado na URL, como: <code>compra.html?id=SEU_ID_GERADO</code></p>
+                `;
+                return;
+            }
+
             try {
-                // 1. Busca o documento no Firestore com o ID FIXO
+                // 1. Busca o documento no Firestore com o ID da URL
                 const projectRef = doc(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`, docId);
                 const projectSnap = await getDoc(projectRef);
 
@@ -298,8 +311,9 @@
                     if (!user) {
                         await signInAnonymously(auth);
                     }
-                    // Usa o ID fixo
-                    renderPurchasePage(FIXED_PROJECT_ID); 
+                    // Obtém o ID da URL
+                    const projectId = getProjectIdFromUrl(); 
+                    renderPurchasePage(projectId);
                 });
             }
 
