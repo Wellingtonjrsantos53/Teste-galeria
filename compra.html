@@ -22,8 +22,9 @@
         };
         
         // --- VARIÁVEIS GERAIS ---
-        const API_URL = window.location.origin; // Domínio base do Vercel
-        const PAYMENT_ENDPOINT = '/create_payment'; // Endpoint do seu backend
+        // ATENÇÃO: Domínio fixo do Vercel para garantir que a chamada API não use caminhos locais
+        const API_BASE_URL = 'https://pagamento-de-projetosvercelapp-wellingtons-projects-02014e31.vercel.app'; 
+        const PAYMENT_ENDPOINT = '/create_payment'; 
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -53,7 +54,6 @@
             pixOutput.innerHTML = '<p class="text-indigo-500">Gerando QR Code e Chave PIX. Aguarde...</p>';
 
             // Dados Fictícios do Pagador (MOCK): ESSENCIAIS para a API do MP
-            // Use dados que o Mercado Pago considere válidos
             const payerData = {
                 email: "comprador_pix_teste@wrarquitetura.com", 
                 first_name: "Comprador",
@@ -68,13 +68,13 @@
             const paymentBody = {
                 transaction_amount: projeto.valorProjeto,
                 description: `Projeto: ${projeto.tipoProjeto || 'Sem Nome'}`,
-                payment_method_id: 'pix', // Indica que queremos PIX
+                payment_method_id: 'pix', 
                 payer: payerData,
             };
 
             try {
-                // Tenta conectar com o backend no Vercel
-                const response = await fetch(`${API_URL}${PAYMENT_ENDPOINT}`, {
+                // Requisição para o domínio fixo + endpoint
+                const response = await fetch(`${API_BASE_URL}${PAYMENT_ENDPOINT}`, { 
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -82,7 +82,6 @@
                     body: JSON.stringify(paymentBody),
                 });
 
-                // ATENÇÃO: Se o servidor retornar HTML (404), a linha abaixo irá quebrar
                 const responseText = await response.text();
 
                 if (!response.ok) {
@@ -123,9 +122,9 @@
                             Este QR Code é dinâmico e expira em 30 minutos.
                         </p>
                     `;
-                    btn.classList.add('hidden'); // Esconde o botão após gerar
+                    btn.classList.add('hidden'); 
                 } else {
-                    // ERRO DA API - Retorno do Mercado Pago (se a chamada foi bem sucedida, mas o MP rejeitou)
+                    // ERRO DA API - Retorno do Mercado Pago
                     console.error("Erro retornado pelo Mercado Pago:", data.error);
                     pixOutput.innerHTML = `<p class="text-red-500">Falha na geração do PIX. Erro MP: ${data.error || 'Desconhecido'}</p>`;
                     btn.disabled = false;
@@ -133,8 +132,7 @@
 
             } catch (e) {
                 console.error("Erro fatal na comunicação:", e);
-                // Este bloco captura o SyntaxError se receber HTML
-                pixOutput.innerHTML = `<p class="text-red-500">Erro fatal. O servidor não retornou JSON. Verifique a rota /create_payment.</p>`;
+                pixOutput.innerHTML = `<p class="text-red-500">Falha ao conectar. Verifique o console ou logs do Vercel.</p>`;
                 btn.disabled = false;
             }
         };
