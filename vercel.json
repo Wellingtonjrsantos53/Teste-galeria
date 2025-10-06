@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api.js", // OU server.js (use o nome do seu arquivo de API na raiz)
+      "src": "create_payment.js",
       "use": "@vercel/node"
     }
   ],
@@ -12,7 +12,7 @@
       "methods": [
         "POST"
       ],
-      "dest": "api.js" // OU server.js (deve ser o mesmo nome que você usa na seção 'builds')
+      "dest": "create_payment.js"
     },
     {
       "src": "/",
