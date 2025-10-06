@@ -22,9 +22,10 @@
         };
         
         // --- VARIÁVEIS GERAIS ---
-        // ATENÇÃO: Domínio fixo do Vercel para garantir que a chamada API não use caminhos locais
+        // 1. Domínio fixo do Vercel para evitar problemas de caminho relativo
         const API_BASE_URL = 'https://pagamento-de-projetosvercelapp-wellingtons-projects-02014e31.vercel.app'; 
-        const PAYMENT_ENDPOINT = '/create_payment'; 
+        // 2. ALTERAÇÃO PRINCIPAL: Endpoint simplificado para o padrão Vercel /api
+        const PAYMENT_ENDPOINT = '/api'; 
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -66,6 +67,7 @@
             
             // Corpo da requisição para o seu server.js
             const paymentBody = {
+                // Se o seu backend espera o valor formatado como string, ajuste Number() para String()
                 transaction_amount: projeto.valorProjeto,
                 description: `Projeto: ${projeto.tipoProjeto || 'Sem Nome'}`,
                 payment_method_id: 'pix', 
@@ -73,7 +75,7 @@
             };
 
             try {
-                // Requisição para o domínio fixo + endpoint
+                // Requisição para o domínio fixo + endpoint /api
                 const response = await fetch(`${API_BASE_URL}${PAYMENT_ENDPOINT}`, { 
                     method: 'POST',
                     headers: {
@@ -86,7 +88,8 @@
 
                 if (!response.ok) {
                     console.error("Erro HTTP:", response.status, responseText);
-                    pixOutput.innerHTML = `<p class="text-red-500">Erro na API. Status: ${response.status}. Verifique os logs do Vercel.</p>`;
+                    // O erro 404 será capturado aqui. Se persistir, o problema é 100% no Vercel.
+                    pixOutput.innerHTML = `<p class="text-red-500">Erro na API. Status: ${response.status}. Verifique a estrutura do Vercel (404).</p>`;
                     btn.disabled = false;
                     return;
                 }
