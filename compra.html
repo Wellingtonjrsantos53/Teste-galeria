@@ -22,8 +22,8 @@
         };
         
         // --- VARIÁVEIS GERAIS ---
-        const API_URL = window.location.origin; // Domínio do Vercel
-        const PAYMENT_ENDPOINT = '/api'; // O Vercel mapeia /api/index.js para a rota /api
+        const API_URL = window.location.origin; // Domínio base do Vercel
+        const PAYMENT_ENDPOINT = '/create_payment'; // Endpoint do seu backend
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -44,7 +44,7 @@
             return listaComodos.map(item => `${item.comodo} (${item.quantidade})`).join(', ');
         };
 
-        // --- FUNÇÃO DE PAGAMENTO (CHAMA A API) ---
+        // --- FUNÇÃO DE PAGAMENTO (CHAMA A API do Mercado Pago) ---
         window.createPixPayment = async (projeto) => {
             const pixOutput = document.getElementById('pix-output');
             const btn = document.getElementById('generatePixButton');
@@ -53,13 +53,14 @@
             pixOutput.innerHTML = '<p class="text-indigo-500">Gerando QR Code e Chave PIX. Aguarde...</p>';
 
             // Dados Fictícios do Pagador (MOCK): ESSENCIAIS para a API do MP
+            // Use dados que o Mercado Pago considere válidos
             const payerData = {
-                email: "comprador_pix@wrarquitetura.com", 
+                email: "comprador_pix_teste@wrarquitetura.com", 
                 first_name: "Comprador",
                 last_name: "Teste",
                 identification: {
                     type: "CPF",
-                    number: "11111111111" // CPF/CNPJ de Teste Válido (para produção, use dados reais)
+                    number: "11111111111" 
                 }
             };
             
@@ -72,6 +73,7 @@
             };
 
             try {
+                // Tenta conectar com o backend no Vercel
                 const response = await fetch(`${API_URL}${PAYMENT_ENDPOINT}`, {
                     method: 'POST',
                     headers: {
@@ -80,9 +82,20 @@
                     body: JSON.stringify(paymentBody),
                 });
 
-                const data = await response.json();
+                // ATENÇÃO: Se o servidor retornar HTML (404), a linha abaixo irá quebrar
+                const responseText = await response.text();
 
-                if (response.ok && data.qr_code_base64) {
+                if (!response.ok) {
+                    console.error("Erro HTTP:", response.status, responseText);
+                    pixOutput.innerHTML = `<p class="text-red-500">Erro na API. Status: ${response.status}. Verifique os logs do Vercel.</p>`;
+                    btn.disabled = false;
+                    return;
+                }
+                
+                // Converte para JSON
+                const data = JSON.parse(responseText); 
+
+                if (data.qr_code_base64) {
                     // SUCESSO: Exibe o QR Code e a chave
                     const valorFormatado = projeto.valorProjeto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     
@@ -112,15 +125,16 @@
                     `;
                     btn.classList.add('hidden'); // Esconde o botão após gerar
                 } else {
-                    // ERRO DA API
-                    console.error("Erro do Backend/Mercado Pago:", data.error);
-                    pixOutput.innerHTML = `<p class="text-red-500">Falha na geração do PIX. Erro: ${data.error || 'Desconhecido'}</p>`;
+                    // ERRO DA API - Retorno do Mercado Pago (se a chamada foi bem sucedida, mas o MP rejeitou)
+                    console.error("Erro retornado pelo Mercado Pago:", data.error);
+                    pixOutput.innerHTML = `<p class="text-red-500">Falha na geração do PIX. Erro MP: ${data.error || 'Desconhecido'}</p>`;
                     btn.disabled = false;
                 }
 
             } catch (e) {
-                console.error("Erro de conexão com o Vercel:", e);
-                pixOutput.innerHTML = `<p class="text-red-500">Falha ao conectar com o servidor da API. Verifique o status do deploy do server.js.</p>`;
+                console.error("Erro fatal na comunicação:", e);
+                // Este bloco captura o SyntaxError se receber HTML
+                pixOutput.innerHTML = `<p class="text-red-500">Erro fatal. O servidor não retornou JSON. Verifique a rota /create_payment.</p>`;
                 btn.disabled = false;
             }
         };

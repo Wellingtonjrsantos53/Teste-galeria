@@ -1,8 +1,23 @@
-// Apenas para testar se a rota do Vercel funciona!
-module.exports = (req, res) => {
-    // Retorna um JSON simples
-    res.status(200).json({ 
-        success: true, 
-        message: "API Route is Working!" 
-    });
-};
+{
+  "version": 2,
+  "routes": [
+    // Rota que chama a função Serverless
+    {
+      "src": "/create_payment",
+      "methods": [
+        "POST"
+      ],
+      "dest": "/api/create_payment.js"
+    },
+    // Rota explícita para o caminho raiz (homepage)
+    {
+      "src": "/",
+      "dest": "/index.html"
+    },
+    // Rota catch-all para servir qualquer outro arquivo estático
+    {
+      "src": "/(.*)",
+      "dest": "/$1" 
+    }
+  ]
+}
