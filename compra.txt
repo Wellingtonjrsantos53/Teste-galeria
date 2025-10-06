@@ -23,7 +23,7 @@
         
         // --- VARIÁVEIS GERAIS ---
         const API_URL = window.location.origin; // Domínio do Vercel
-        const PAYMENT_ENDPOINT = '/api'; // O Vercel mapeia /api/index.js para a rota /api
+        const PAYMENT_ENDPOINT = '/create_payment'; // Endpoint do seu server.js
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
