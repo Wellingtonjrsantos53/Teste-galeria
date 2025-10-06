@@ -1,32 +1,31 @@
-// [api/create_payment.js]
-
-// ... (código de inicialização e variáveis omitidas) ...
-
 module.exports = async (req, res) => {
     // --- SOLUÇÃO CORS: Adiciona cabeçalhos de permissão ---
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Permite qualquer origem (*)
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    // Você pode usar '*' para permitir todas as origens, ou definir um domínio específico
+    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // Manipula requisições OPTIONS (preflight)
+    // Se a requisição for OPTIONS (Preflight), finalize e retorne 200
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
     // --------------------------------------------------------
+
+    // ... restante do seu código de API começa aqui: ...
 
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
     }
 
     try {
-        // ... (código de processamento do pagamento) ...
-
-        // ...
+        // ... (lógica do Mercado Pago) ...
+        
+        // Final da requisição POST bem-sucedida:
         res.status(200).json({
             // ... (dados de sucesso)
         });
 
     } catch (error) {
-        // ... (código de erro)
+        // ... (lógica de erro)
     }
 };
