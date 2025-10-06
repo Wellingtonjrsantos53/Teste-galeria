@@ -32,7 +32,7 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         
-        // --- Funções de Ajuda ---
+        // --- Funções de Ajuda (mantidas) ---
         
         const formatComodosList = (listaComodos) => {
             if (!listaComodos || listaComodos.length === 0) {
@@ -48,7 +48,7 @@
         };
 
         const startPaymentMonitoring = (data, valorFormatado) => {
-            // Esta função renderiza a tela de espera/expiração do PIX
+            // Lógica de monitoramento/tela de agradecimento (mantida)
             const paymentSection = document.getElementById('payment-section');
             paymentSection.classList.remove('p-8');
             
@@ -83,7 +83,7 @@
             `;
         };
         
-        // --- FUNÇÃO DE PAGAMENTO (Gera o QR Code) ---
+        // --- FUNÇÃO DE PAGAMENTO (Gera o QR Code) --- (mantida)
         window.createPixPayment = async (projeto) => {
             const form = document.getElementById('payerForm');
             const pixOutputContainer = document.getElementById('pix-output-container'); 
@@ -214,7 +214,7 @@
             }
         };
 
-        // --- RENDERIZAÇÃO DA PÁGINA COM OS DADOS DO PROJETO ---
+        // --- RENDERIZAÇÃO DA PÁGINA COM OS DADOS DO PROJETO --- (mantida)
         const renderPurchasePage = async (projeto) => {
             const container = document.getElementById('purchase-container');
             
@@ -296,7 +296,7 @@
                 }
             };
 
-            // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA AUTOMÁTICA (FINAL) ---
+            // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA AUTOMÁTICA (Corrigida com o Caminho Exato) ---
             const loadPurchaseData = async () => {
                 const container = document.getElementById('purchase-container');
                 let latestProjectData = null;
@@ -313,11 +313,9 @@
                         throw new Error("Falha de autenticação anônima do Firebase.");
                     }
                     
-                    // --- PONTO DE AJUSTE DE BUSCA ---
-                    // Se o erro for de caminho, este é o ponto a ser corrigido.
-                    // O caminho abaixo é o seu caminho original (o mais completo)
-                    // Se o erro persistir, você DEVE simplificar este caminho no Firebase.
-                    const CAMINHO_COMPLETO_DO_FIREBASE = `artifacts/${firebaseConfig.projectId}/public/data/galleries`;
+                    // CORREÇÃO FINAL DO CAMINHO: Usa o caminho exato que você forneceu.
+                    // ATENÇÃO: Se o erro persistir, o problema é o Índice de Ordenação (F12) ou Regras.
+                    const CAMINHO_COMPLETO_DO_FIREBASE = `artifacts/galeria-do-site-duplicado/public/data/galleries`;
 
                     const galleriesRef = collection(db, CAMINHO_COMPLETO_DO_FIREBASE);
                     
@@ -350,8 +348,8 @@
                     container.innerHTML = `
                         <p class="text-red-500 text-lg font-bold">ERRO FATAL DE COMUNICAÇÃO.</p>
                         <p class="text-gray-600 mt-2">
-                            Verifique o <strong>Console (F12)</strong>. O caminho <strong>'${CAMINHO_COMPLETO_DO_FIREBASE}'</strong> 
-                            provavelmente está incorreto ou exige a criação de um Índice.
+                            O caminho foi verificado, mas a busca falhou. Verifique o **Console (F12)**. 
+                            Você deve criar o Índice de Ordenação se o link for exibido.
                         </p>
                     `;
                 }
