@@ -22,7 +22,9 @@
         };
         
         // --- VARIÁVEIS GERAIS ---
+        // Domínio fixo do Vercel para garantir que a chamada API não use caminhos locais
         const API_BASE_URL = 'https://pagamento-de-projetosvercelapp-wellingtons-projects-02014e31.vercel.app'; 
+        // Endpoint que seu backend deve atender
         const PAYMENT_ENDPOINT = '/create_payment'; 
 
         const app = initializeApp(firebaseConfig);
@@ -45,7 +47,7 @@
         };
 
         // --- FUNÇÃO DE PAGAMENTO (CHAMA A API do Mercado Pago) ---
-        // Agora, ela recebe o OBJETO do projeto (dados do produto) E os dados do pagador (formulário)
+        // A função agora é disparada pelo submit do formulário
         window.createPixPayment = async (projeto) => {
             const form = document.getElementById('payerForm');
             const pixOutput = document.getElementById('pix-output');
@@ -57,13 +59,13 @@
                 return;
             }
 
-            // 2. COLETA DOS DADOS REAIS DO PAGADOR
+            // 2. COLETA DOS DADOS REAIS DO PAGADOR DO FORMULÁRIO
             const payerData = {
                 email: document.getElementById('payerEmail').value,
                 first_name: document.getElementById('payerFirstName').value,
                 last_name: document.getElementById('payerLastName').value,
                 identification: {
-                    type: 'CPF', // Assumimos CPF, ajuste se for CNPJ
+                    type: 'CPF', // Assumimos CPF
                     number: document.getElementById('payerDocument').value.replace(/\D/g, '') // Remove caracteres não numéricos
                 }
             };
@@ -80,6 +82,7 @@
             };
 
             try {
+                // Requisição para o domínio fixo + endpoint
                 const response = await fetch(`${API_BASE_URL}${PAYMENT_ENDPOINT}`, { 
                     method: 'POST',
                     headers: {
@@ -92,6 +95,7 @@
 
                 if (!response.ok) {
                     console.error("Erro HTTP:", response.status, responseText);
+                    // Captura erros 400/500/etc.
                     pixOutput.innerHTML = `<p class="text-red-500">Erro na API. Status: ${response.status}. Verifique os logs do Vercel.</p>`;
                     btn.disabled = false;
                     return;
@@ -128,9 +132,10 @@
                             Este QR Code é dinâmico e expira em 30 minutos.
                         </p>
                     `;
-                    btn.classList.add('hidden'); // Esconde o botão após gerar
+                    // Oculta o formulário para evitar múltiplos cliques
+                    document.getElementById('payerForm').style.display = 'none';
                 } else {
-                    // ERRO DA API - Retorno do Mercado Pago
+                    // ERRO DA API - Retorno do Mercado Pago (se a chamada foi bem sucedida, mas o MP rejeitou)
                     console.error("Erro retornado pelo Mercado Pago:", data.error);
                     pixOutput.innerHTML = `<p class="text-red-500">Falha na geração do PIX. Erro MP: ${data.error || 'Desconhecido'}</p>`;
                     btn.disabled = false;
@@ -217,9 +222,6 @@
                         <div id="pix-output" class="mt-4"></div>
                     </div>
                 `;
-            
-            // Aqui garantimos que o objeto 'projeto' esteja disponível na função createPixPayment
-            // A chamada está sendo feita no onsubmit do form: window.createPixPayment(${JSON.stringify(projeto)})
 
             } catch (error) {
                 console.error("Erro ao carregar o projeto:", error);
