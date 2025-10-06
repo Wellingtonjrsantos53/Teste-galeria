@@ -296,13 +296,13 @@
                 }
             };
 
-            // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA AUTOMÁTICA (Corrigida) ---
+            // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA AUTOMÁTICA (FINAL) ---
             const loadPurchaseData = async () => {
                 const container = document.getElementById('purchase-container');
                 let latestProjectData = null;
                 
                 try {
-                    // 1. Tenta autenticar anonimamente (necessário para acesso ao Firestore)
+                    // 1. Tenta autenticar anonimamente
                     let user = auth.currentUser;
                     if (!user) {
                         const userCredential = await signInAnonymously(auth);
@@ -313,35 +313,45 @@
                         throw new Error("Falha de autenticação anônima do Firebase.");
                     }
                     
-                    // 2. Define a referência e a consulta de busca
-                    const galleriesRef = collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`);
+                    // --- PONTO DE AJUSTE DE BUSCA ---
+                    // Se o erro for de caminho, este é o ponto a ser corrigido.
+                    // O caminho abaixo é o seu caminho original (o mais completo)
+                    // Se o erro persistir, você DEVE simplificar este caminho no Firebase.
+                    const CAMINHO_COMPLETO_DO_FIREBASE = `artifacts/${firebaseConfig.projectId}/public/data/galleries`;
+
+                    const galleriesRef = collection(db, CAMINHO_COMPLETO_DO_FIREBASE);
                     
-                    // TENTATIVA 1: BUSCA ORDENADA (Mais eficiente, pega o mais novo)
+                    // TENTATIVA 1: BUSCA ORDENADA (Mais nova)
                     const qOrdered = query(galleriesRef, orderBy('createdAt', 'desc'), limit(1));
                     const snapshotOrdered = await getDocs(qOrdered);
                     
                     if (!snapshotOrdered.empty) {
                         latestProjectData = snapshotOrdered.docs[0].data();
+                        console.log("SUCESSO: Projeto encontrado via ordenação."); 
                     } else {
-                        // TENTATIVA 2: BUSCA SIMPLES (Fallback, se a ordenação falhar)
+                        // TENTATIVA 2: BUSCA SIMPLES (Fallback)
                         const qSimple = query(galleriesRef, limit(1));
                         const snapshotSimple = await getDocs(qSimple);
 
                         if (!snapshotSimple.empty) {
                              latestProjectData = snapshotSimple.docs[0].data();
+                             console.log("SUCESSO: Projeto encontrado via busca simples."); 
+                        } else {
+                            console.log("AVISO: NENHUM PROJETO ENCONTRADO NA COLEÇÃO.");
                         }
                     }
 
-                    // 3. Renderiza a página com os dados
+                    // Renderiza a página com os dados
                     renderPurchasePage(latestProjectData);
 
                 } catch (error) {
-                    // Captura erros de permissão, índice ausente, ou erro de inicialização
+                    // Captura erros de permissão, índice ausente, ou erro de inicialização.
                     console.error("ERRO CRÍTICO NA INICIALIZAÇÃO OU BUSCA:", error);
                     container.innerHTML = `
-                        <p class="text-red-500 text-lg font-bold">ERRO FATAL. Verifique o console (F12).</p>
+                        <p class="text-red-500 text-lg font-bold">ERRO FATAL DE COMUNICAÇÃO.</p>
                         <p class="text-gray-600 mt-2">
-                            Mensagem: ${error.message || 'Erro de comunicação desconhecido.'}
+                            Verifique o <strong>Console (F12)</strong>. O caminho <strong>'${CAMINHO_COMPLETO_DO_FIREBASE}'</strong> 
+                            provavelmente está incorreto ou exige a criação de um Índice.
                         </p>
                     `;
                 }
