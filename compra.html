@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finalizar Compra - Projeto</title>
+    <title>Finalizar Compra - Projeto Automático</title>
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, getDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // NOVAS IMPORTAÇÕES PARA BUSCA AVANÇADA (ÚLTIMO PROJETO)
+        import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- CONFIGURAÇÃO FIREBASE ---
         const firebaseConfig = {
@@ -25,8 +27,6 @@
         // --- VARIÁVEIS GERAIS ---
         const API_BASE_URL = 'https://pagamento-de-projetosvercelapp-wellingtons-projects-02014e31.vercel.app'; 
         const PAYMENT_ENDPOINT = '/create_payment'; 
-        
-        // ID Fixo REMOVIDO: const FIXED_PROJECT_ID = '...'; 
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -34,12 +34,7 @@
         
         // --- Funções de Ajuda ---
         
-        // RESTAURADO: Obtém o ID do projeto na URL
-        const getProjectIdFromUrl = () => {
-            const params = new URLSearchParams(window.location.search);
-            const id = params.get('id');
-            return id ? id.trim() : null;
-        };
+        // getProjectIdFromUrl FOI REMOVIDA
         
         const formatComodosList = (listaComodos) => {
             if (!listaComodos || listaComodos.length === 0) {
@@ -220,30 +215,22 @@
             }
         };
 
-        // --- RENDERIZAÇÃO DA PÁGINA (USA ID da URL) ---
-        const renderPurchasePage = async (docId) => {
+        // --- RENDERIZAÇÃO DA PÁGINA ---
+        // Agora recebe os DADOS do projeto, não o ID
+        const renderPurchasePage = async (projeto) => {
             const container = document.getElementById('purchase-container');
             
-            // RESTAURADO: Tratamento de erro se o ID não estiver na URL
-            if (!docId) {
+            // Verifica se um projeto válido foi encontrado (novo argumento)
+            if (!projeto || !projeto.valorProjeto) {
                 container.innerHTML = `
-                    <p class="text-red-500 text-lg font-bold">ERRO: Projeto não encontrado.</p>
-                    <p class="text-gray-600 mt-2">O ID do projeto (documento Firestore) é obrigatório e deve ser passado na URL, como: <code>compra.html?id=SEU_ID_GERADO</code></p>
+                    <p class="text-red-500 text-lg font-bold">ERRO: Nenhum projeto encontrado.</p>
+                    <p class="text-gray-600 mt-2">Certifique-se de que há projetos na sua coleção 'galleries' e que eles possuem o campo 'createdAt' (Timestamp) para ordenação.</p>
                 `;
                 return;
             }
 
             try {
-                // 1. Busca o documento no Firestore com o ID da URL
-                const projectRef = doc(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`, docId);
-                const projectSnap = await getDoc(projectRef);
-
-                if (!projectSnap.exists()) {
-                    container.innerHTML = `<p class="text-red-500 text-lg">Erro: Projeto com ID ${docId} não encontrado no banco de dados. Verifique o ID.</p>`;
-                    return;
-                }
-
-                const projeto = projectSnap.data();
+                
                 const title = projeto.tipoProjeto || 'Projeto Sem Nome';
                 const valor = projeto.valorProjeto || 0;
                 const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -305,15 +292,38 @@
                 }
             };
 
-            // Função que inicia o processo
+            // --- FUNÇÃO QUE INICIA O PROCESSO (BUSCA AUTOMÁTICA) ---
             const loadPurchaseData = () => {
                 onAuthStateChanged(auth, async (user) => {
                     if (!user) {
                         await signInAnonymously(auth);
                     }
-                    // Obtém o ID da URL
-                    const projectId = getProjectIdFromUrl(); 
-                    renderPurchasePage(projectId);
+
+                    const container = document.getElementById('purchase-container');
+                    
+                    try {
+                        // 1. Define a referência para a coleção de projetos
+                        const galleriesRef = collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`);
+                        
+                        // 2. Consulta: Ordena por 'createdAt' (mais recente primeiro) e pega apenas 1
+                        const q = query(galleriesRef, orderBy('createdAt', 'desc'), limit(1));
+                        
+                        const querySnapshot = await getDocs(q);
+                        
+                        let latestProjectData = null;
+                        
+                        if (!querySnapshot.empty) {
+                            // 3. Obtém os dados do primeiro (e único) documento encontrado
+                            latestProjectData = querySnapshot.docs[0].data();
+                        }
+
+                        // 4. Passa os dados do projeto (ou null) para a renderização
+                        renderPurchasePage(latestProjectData);
+
+                    } catch (error) {
+                        console.error("Erro na busca automática do Firebase:", error);
+                        container.innerHTML = `<p class="text-red-500 text-lg">Falha ao buscar projetos no Firebase. Verifique as regras de segurança do Firestore.</p>`;
+                    }
                 });
             }
 
