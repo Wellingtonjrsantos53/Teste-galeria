@@ -34,8 +34,6 @@
         
         // --- Funções de Ajuda ---
         
-        // getProjectIdFromUrl FOI REMOVIDA
-        
         const formatComodosList = (listaComodos) => {
             if (!listaComodos || listaComodos.length === 0) {
                 return 'N/A';
@@ -84,7 +82,7 @@
             `;
         };
 
-        // --- FUNÇÃO DE PAGAMENTO (inalterada) ---
+        // --- FUNÇÃO DE PAGAMENTO ---
         window.createPixPayment = async (projeto) => {
             const form = document.getElementById('payerForm');
             const pixOutputContainer = document.getElementById('pix-output-container'); 
@@ -216,15 +214,13 @@
         };
 
         // --- RENDERIZAÇÃO DA PÁGINA ---
-        // Agora recebe os DADOS do projeto, não o ID
         const renderPurchasePage = async (projeto) => {
             const container = document.getElementById('purchase-container');
             
-            // Verifica se um projeto válido foi encontrado (novo argumento)
             if (!projeto || !projeto.valorProjeto) {
                 container.innerHTML = `
                     <p class="text-red-500 text-lg font-bold">ERRO: Nenhum projeto encontrado.</p>
-                    <p class="text-gray-600 mt-2">Certifique-se de que há projetos na sua coleção 'galleries' e que eles possuem o campo 'createdAt' (Timestamp) para ordenação.</p>
+                    <p class="text-gray-600 mt-2">Verifique se sua coleção está vazia ou se as regras de segurança do Firebase estão corretas.</p>
                 `;
                 return;
             }
@@ -292,7 +288,7 @@
                 }
             };
 
-            // --- FUNÇÃO QUE INICIA O PROCESSO (BUSCA AUTOMÁTICA) ---
+            // --- FUNÇÃO QUE INICIA O PROCESSO (BUSCA AUTOMÁTICA OTIMIZADA) ---
             const loadPurchaseData = () => {
                 onAuthStateChanged(auth, async (user) => {
                     if (!user) {
@@ -300,29 +296,38 @@
                     }
 
                     const container = document.getElementById('purchase-container');
+                    let latestProjectData = null;
                     
                     try {
-                        // 1. Define a referência para a coleção de projetos
                         const galleriesRef = collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`);
                         
-                        // 2. Consulta: Ordena por 'createdAt' (mais recente primeiro) e pega apenas 1
-                        const q = query(galleriesRef, orderBy('createdAt', 'desc'), limit(1));
+                        // TENTATIVA 1: BUSCA ORDENADA (Mais eficiente, tenta pegar o mais novo)
+                        const qOrdered = query(galleriesRef, orderBy('createdAt', 'desc'), limit(1));
+                        const snapshotOrdered = await getDocs(qOrdered);
                         
-                        const querySnapshot = await getDocs(q);
-                        
-                        let latestProjectData = null;
-                        
-                        if (!querySnapshot.empty) {
-                            // 3. Obtém os dados do primeiro (e único) documento encontrado
-                            latestProjectData = querySnapshot.docs[0].data();
+                        if (!snapshotOrdered.empty) {
+                            latestProjectData = snapshotOrdered.docs[0].data();
+                        } else {
+                            // TENTATIVA 2: BUSCA SIMPLES (Fallback, se a ordenação falhar, pega o primeiro que aparecer)
+                            const qSimple = query(galleriesRef, limit(1));
+                            const snapshotSimple = await getDocs(qSimple);
+
+                            if (!snapshotSimple.empty) {
+                                 latestProjectData = snapshotSimple.docs[0].data();
+                            }
                         }
 
-                        // 4. Passa os dados do projeto (ou null) para a renderização
                         renderPurchasePage(latestProjectData);
 
                     } catch (error) {
-                        console.error("Erro na busca automática do Firebase:", error);
-                        container.innerHTML = `<p class="text-red-500 text-lg">Falha ao buscar projetos no Firebase. Verifique as regras de segurança do Firestore.</p>`;
+                        console.error("Erro fatal na busca do Firebase:", error);
+                        container.innerHTML = `
+                            <p class="text-red-500 text-lg font-bold">Falha na Busca de Projetos.</p>
+                            <p class="text-gray-600 mt-2">Verifique no console do Firebase: 
+                                1. Se o caminho da coleção (galleries) está correto. 
+                                2. Se as regras de segurança permitem leitura (get/list).
+                            </p>
+                        `;
                     }
                 });
             }
