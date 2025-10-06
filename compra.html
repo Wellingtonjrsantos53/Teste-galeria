@@ -8,7 +8,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
         // IMPORTAÇÕES NECESSÁRIAS PARA BUSCA AVANÇADA AUTOMÁTICA
         import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -38,7 +38,6 @@
             if (!listaComodos || listaComodos.length === 0) {
                 return 'N/A';
             }
-            // Mapeia a lista de cômodos para um formato legível
             return listaComodos.map(item => `${item.comodo} (${item.quantidade})`).join(', ');
         };
 
@@ -83,7 +82,7 @@
                 </div>
             `;
         };
-
+        
         // --- FUNÇÃO DE PAGAMENTO (Gera o QR Code) ---
         window.createPixPayment = async (projeto) => {
             const form = document.getElementById('payerForm');
@@ -226,7 +225,7 @@
                         Não foi possível carregar o projeto mais recente. Verifique:
                         <ul class="list-disc list-inside mt-2 ml-4 text-sm">
                             <li>Se há projetos na coleção 'galleries' do Firestore.</li>
-                            <li>Se as **Regras de Segurança** do Firestore permitem `allow read: if true;` no caminho da coleção.</li>
+                            <li>Se as **Regras de Segurança** do Firestore permitem a leitura.</li>
                             <li>Se o **Índice** de ordenação `orderBy('createdAt', 'desc')` foi criado (procure no console F12).</li>
                         </ul>
                     </p>
@@ -238,7 +237,6 @@
                 
                 const title = projeto.tipoProjeto || 'Projeto Sem Nome';
                 const valor = projeto.valorProjeto || 0;
-                // Formata o valor para R$
                 const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 const comodosDetalhe = formatComodosList(projeto.listaComodos);
 
@@ -298,56 +296,58 @@
                 }
             };
 
-            // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA AUTOMÁTICA ---
-            const loadPurchaseData = () => {
-                onAuthStateChanged(auth, async (user) => {
-                    // Autentica anonimamente para ter permissão de leitura (se as regras permitirem)
+            // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA AUTOMÁTICA (Corrigida) ---
+            const loadPurchaseData = async () => {
+                const container = document.getElementById('purchase-container');
+                let latestProjectData = null;
+                
+                try {
+                    // 1. Tenta autenticar anonimamente (necessário para acesso ao Firestore)
+                    let user = auth.currentUser;
                     if (!user) {
-                        await signInAnonymously(auth);
+                        const userCredential = await signInAnonymously(auth);
+                        user = userCredential.user;
                     }
 
-                    const container = document.getElementById('purchase-container');
-                    let latestProjectData = null;
+                    if (!user) {
+                        throw new Error("Falha de autenticação anônima do Firebase.");
+                    }
                     
-                    try {
-                        // Caminho exato da coleção
-                        const galleriesRef = collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`);
-                        
-                        // TENTATIVA 1: BUSCA ORDENADA (Mais eficiente, tenta pegar o mais novo)
-                        // Requer que o campo 'createdAt' seja um Timestamp e que o índice exista.
-                        const qOrdered = query(galleriesRef, orderBy('createdAt', 'desc'), limit(1));
-                        const snapshotOrdered = await getDocs(qOrdered);
-                        
-                        if (!snapshotOrdered.empty) {
-                            latestProjectData = snapshotOrdered.docs[0].data();
-                        } else {
-                            // TENTATIVA 2: BUSCA SIMPLES (Fallback, se a ordenação falhar)
-                            // Pega o primeiro documento que aparecer na coleção.
-                            const qSimple = query(galleriesRef, limit(1));
-                            const snapshotSimple = await getDocs(qSimple);
+                    // 2. Define a referência e a consulta de busca
+                    const galleriesRef = collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`);
+                    
+                    // TENTATIVA 1: BUSCA ORDENADA (Mais eficiente, pega o mais novo)
+                    const qOrdered = query(galleriesRef, orderBy('createdAt', 'desc'), limit(1));
+                    const snapshotOrdered = await getDocs(qOrdered);
+                    
+                    if (!snapshotOrdered.empty) {
+                        latestProjectData = snapshotOrdered.docs[0].data();
+                    } else {
+                        // TENTATIVA 2: BUSCA SIMPLES (Fallback, se a ordenação falhar)
+                        const qSimple = query(galleriesRef, limit(1));
+                        const snapshotSimple = await getDocs(qSimple);
 
-                            if (!snapshotSimple.empty) {
-                                 latestProjectData = snapshotSimple.docs[0].data();
-                            }
+                        if (!snapshotSimple.empty) {
+                             latestProjectData = snapshotSimple.docs[0].data();
                         }
-
-                        // Renderiza a página com o projeto encontrado (ou null)
-                        renderPurchasePage(latestProjectData);
-
-                    } catch (error) {
-                        // Captura erros de permissão ou índice ausente
-                        console.error("Erro fatal na busca do Firebase:", error);
-                        container.innerHTML = `
-                            <p class="text-red-500 text-lg font-bold">Falha na Busca de Projetos.</p>
-                            <p class="text-gray-600 mt-2">
-                                Ocorreu um erro. Abra o **Console (F12)** do navegador para ver os detalhes do erro do Firebase. 
-                                Provavelmente, você precisa criar um **Índice de Ordenação** (o link aparece no Console).
-                            </p>
-                        `;
                     }
-                });
-            }
 
+                    // 3. Renderiza a página com os dados
+                    renderPurchasePage(latestProjectData);
+
+                } catch (error) {
+                    // Captura erros de permissão, índice ausente, ou erro de inicialização
+                    console.error("ERRO CRÍTICO NA INICIALIZAÇÃO OU BUSCA:", error);
+                    container.innerHTML = `
+                        <p class="text-red-500 text-lg font-bold">ERRO FATAL. Verifique o console (F12).</p>
+                        <p class="text-gray-600 mt-2">
+                            Mensagem: ${error.message || 'Erro de comunicação desconhecido.'}
+                        </p>
+                    `;
+                }
+            };
+
+            // Inicia o processo
             loadPurchaseData();
         </script>
 </head>
