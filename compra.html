@@ -22,10 +22,8 @@
         };
         
         // --- VARIÁVEIS GERAIS ---
-        // 1. Domínio fixo do Vercel para evitar problemas de caminho relativo
         const API_BASE_URL = 'https://pagamento-de-projetosvercelapp-wellingtons-projects-02014e31.vercel.app'; 
-        // 2. ALTERAÇÃO PRINCIPAL: Endpoint simplificado para o padrão Vercel /api
-        const PAYMENT_ENDPOINT = '/api'; 
+        const PAYMENT_ENDPOINT = '/create_payment'; 
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -47,27 +45,34 @@
         };
 
         // --- FUNÇÃO DE PAGAMENTO (CHAMA A API do Mercado Pago) ---
+        // Agora, ela recebe o OBJETO do projeto (dados do produto) E os dados do pagador (formulário)
         window.createPixPayment = async (projeto) => {
+            const form = document.getElementById('payerForm');
             const pixOutput = document.getElementById('pix-output');
             const btn = document.getElementById('generatePixButton');
+
+            // 1. VALIDAÇÃO DO FORMULÁRIO
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            // 2. COLETA DOS DADOS REAIS DO PAGADOR
+            const payerData = {
+                email: document.getElementById('payerEmail').value,
+                first_name: document.getElementById('payerFirstName').value,
+                last_name: document.getElementById('payerLastName').value,
+                identification: {
+                    type: 'CPF', // Assumimos CPF, ajuste se for CNPJ
+                    number: document.getElementById('payerDocument').value.replace(/\D/g, '') // Remove caracteres não numéricos
+                }
+            };
 
             btn.disabled = true;
             pixOutput.innerHTML = '<p class="text-indigo-500">Gerando QR Code e Chave PIX. Aguarde...</p>';
 
-            // Dados Fictícios do Pagador (MOCK): ESSENCIAIS para a API do MP
-            const payerData = {
-                email: "comprador_pix_teste@wrarquitetura.com", 
-                first_name: "Comprador",
-                last_name: "Teste",
-                identification: {
-                    type: "CPF",
-                    number: "11111111111" 
-                }
-            };
-            
-            // Corpo da requisição para o seu server.js
+            // 3. CORPO DA REQUISIÇÃO
             const paymentBody = {
-                // Se o seu backend espera o valor formatado como string, ajuste Number() para String()
                 transaction_amount: projeto.valorProjeto,
                 description: `Projeto: ${projeto.tipoProjeto || 'Sem Nome'}`,
                 payment_method_id: 'pix', 
@@ -75,7 +80,6 @@
             };
 
             try {
-                // Requisição para o domínio fixo + endpoint /api
                 const response = await fetch(`${API_BASE_URL}${PAYMENT_ENDPOINT}`, { 
                     method: 'POST',
                     headers: {
@@ -88,8 +92,7 @@
 
                 if (!response.ok) {
                     console.error("Erro HTTP:", response.status, responseText);
-                    // O erro 404 será capturado aqui. Se persistir, o problema é 100% no Vercel.
-                    pixOutput.innerHTML = `<p class="text-red-500">Erro na API. Status: ${response.status}. Verifique a estrutura do Vercel (404).</p>`;
+                    pixOutput.innerHTML = `<p class="text-red-500">Erro na API. Status: ${response.status}. Verifique os logs do Vercel.</p>`;
                     btn.disabled = false;
                     return;
                 }
@@ -125,7 +128,7 @@
                             Este QR Code é dinâmico e expira em 30 minutos.
                         </p>
                     `;
-                    btn.classList.add('hidden'); 
+                    btn.classList.add('hidden'); // Esconde o botão após gerar
                 } else {
                     // ERRO DA API - Retorno do Mercado Pago
                     console.error("Erro retornado pelo Mercado Pago:", data.error);
@@ -165,7 +168,7 @@
                 const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 const comodosDetalhe = formatComodosList(projeto.listaComodos);
 
-                // Renderiza o botão que chama createPixPayment()
+                // Renderiza o formulário e o botão
                 container.innerHTML = `
                     <h2 class="text-3xl font-extrabold text-indigo-700 mb-6">${title}</h2>
                     
@@ -178,20 +181,45 @@
                         </div>
                     </div>
 
-                    <div id="payment-section" class="bg-white p-6 rounded-lg shadow-xl border-2 border-indigo-200 text-center">
-                        <h3 class="text-2xl font-bold text-indigo-700 mb-4">Gerar Pagamento PIX</h3>
-                        <p class="text-gray-600 mb-4">Clique abaixo para gerar o QR Code único para o valor de **${valorFormatado}**.</p>
+                    <div id="payment-section" class="bg-white p-6 rounded-lg shadow-xl border-2 border-indigo-200">
+                        <h3 class="text-2xl font-bold text-indigo-700 mb-4 text-center">Dados do Comprador (Requerido)</h3>
                         
-                        <button 
-                            id="generatePixButton" 
-                            onclick='window.createPixPayment(${JSON.stringify(projeto)})' 
-                            class="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors shadow-lg disabled:opacity-50"
-                        >
-                            Gerar QR Code PIX
-                        </button>
+                        <form id="payerForm" onsubmit="event.preventDefault(); window.createPixPayment(${JSON.stringify(projeto)})">
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="payerFirstName" class="block text-sm font-medium text-gray-700">Nome</label>
+                                    <input type="text" id="payerFirstName" name="payerFirstName" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                </div>
+                                <div>
+                                    <label for="payerLastName" class="block text-sm font-medium text-gray-700">Sobrenome</label>
+                                    <input type="text" id="payerLastName" name="payerLastName" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                </div>
+                                <div>
+                                    <label for="payerEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                                    <input type="email" id="payerEmail" name="payerEmail" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                </div>
+                                <div>
+                                    <label for="payerDocument" class="block text-sm font-medium text-gray-700">CPF/CNPJ (Apenas números)</label>
+                                    <input type="text" id="payerDocument" name="payerDocument" required minlength="11" maxlength="14" pattern="[0-9]+" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                </div>
+                            </div>
+                            
+                            <button 
+                                type="submit"
+                                id="generatePixButton" 
+                                class="mt-6 w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors shadow-lg disabled:opacity-50"
+                            >
+                                Gerar QR Code PIX e Finalizar Compra
+                            </button>
+                        </form>
+                        
                         <div id="pix-output" class="mt-4"></div>
                     </div>
                 `;
+            
+            // Aqui garantimos que o objeto 'projeto' esteja disponível na função createPixPayment
+            // A chamada está sendo feita no onsubmit do form: window.createPixPayment(${JSON.stringify(projeto)})
 
             } catch (error) {
                 console.error("Erro ao carregar o projeto:", error);
