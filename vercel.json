@@ -1,17 +1,23 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "api.js",
+      "use": "@vercel/node"
+    }
+  ],
   "routes": [
-    // 1. Rota que serve a API do Mercado Pago no novo caminho /api/create_payment
     {
       "src": "/create_payment",
-      "dest": "/api/index.js"
+      "methods": [
+        "POST"
+      ],
+      "dest": "api.js" // Apontando para o novo nome do arquivo
     },
-    // 2. Rota explícita para o caminho raiz (homepage)
     {
       "src": "/",
       "dest": "/index.html"
     },
-    // 3. Rota catch-all para servir qualquer outro arquivo estático (compra.html, etc.)
     {
       "src": "/(.*)",
       "dest": "/$1" 
