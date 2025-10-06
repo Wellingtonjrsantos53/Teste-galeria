@@ -1,0 +1,24 @@
+<h3 class="text-2xl font-bold text-green-600 mb-2 text-center">PIX Gerado com Sucesso!</h3>
+<p class="text-gray-600 mb-6 text-center">Leia o QR Code abaixo para pagar **${valorFormatado}** e finalizar sua compra.</p>
+
+<div class="bg-red-50 border-2 border-red-300 p-3 rounded-lg text-center mb-6 max-w-sm mx-auto">
+    <strong class="text-sm text-red-700 block">Tempo Restante para o Pagamento:</strong>
+    <span id="pixTimer" class="text-3xl font-extrabold text-red-600">${formatTime(remainingTime)}</span>
+</div>
+
+<img src="data:image/jpeg;base64,${data.qr_code_base64}" 
+    alt="QR Code PIX" 
+    class="mx-auto border-4 border-indigo-500 p-2 rounded-lg mb-6 w-52 h-52 shadow-xl"/>
+
+<div class="bg-gray-100 p-4 rounded-lg mb-4">
+    <strong class="block text-sm text-gray-700 mb-1">Chave Copia e Cola:</strong>
+    <span id="pixCode" class="font-mono text-xs text-gray-800 break-all">${data.qr_code_text}</span>
+</div>
+
+<button id="copyPixButton" onclick="navigator.clipboard.writeText(document.getElementById('pixCode').textContent)" class="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-colors">
+    Copiar Chave PIX
+</button>
+
+<p class="text-xs text-gray-400 mt-4 text-center">
+    Referência de Pagamento: ${data.payment_id}
+</p>
