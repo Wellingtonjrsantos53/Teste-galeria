@@ -25,6 +25,9 @@
         // --- VARIÁVEIS GERAIS ---
         const API_BASE_URL = 'https://pagamento-de-projetosvercelapp-wellingtons-projects-02014e31.vercel.app'; 
         const PAYMENT_ENDPOINT = '/create_payment'; 
+        
+        // ID REAL DO SEU PROJETO - CORRIGIDO
+        const FIXED_PROJECT_ID = 'prj_R2yYDVHLnxLHNgHKL3RGtZevHKxc'; 
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -32,12 +35,8 @@
         
         // --- Funções de Ajuda ---
         
-        const getProjectIdFromUrl = () => {
-            const params = new URLSearchParams(window.location.search);
-            const id = params.get('id');
-            return id ? id.trim() : null;
-        };
-
+        // Função original getProjectIdFromUrl foi removida
+        
         const formatComodosList = (listaComodos) => {
             if (!listaComodos || listaComodos.length === 0) {
                 return 'N/A';
@@ -45,19 +44,16 @@
             return listaComodos.map(item => `${item.comodo} (${item.quantidade})`).join(', ');
         };
 
-        // NOVO: Função para formatar o tempo (MM:SS)
         const formatTime = (totalSeconds) => {
             const minutes = Math.floor(totalSeconds / 60);
             const seconds = totalSeconds % 60;
             return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         };
 
-        // ATUALIZADO: Função de monitoramento que EXIBE o QR Code
         const startPaymentMonitoring = (data, valorFormatado) => {
             const paymentSection = document.getElementById('payment-section');
             paymentSection.classList.remove('p-8');
             
-            // Adiciona o bloco de PIX na área de monitoramento
             paymentSection.innerHTML = `
                 <div class="text-center p-8 bg-yellow-50 rounded-lg shadow-xl border-4 border-yellow-300 mb-6">
                     <svg class="mx-auto h-12 w-12 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -89,21 +85,17 @@
             `;
         };
 
-
-        // --- FUNÇÃO DE PAGAMENTO (Gera o QR Code na MESMA página) ---
-        // ATUALIZADA com Timer
+        // --- FUNÇÃO DE PAGAMENTO ---
         window.createPixPayment = async (projeto) => {
             const form = document.getElementById('payerForm');
             const pixOutputContainer = document.getElementById('pix-output-container'); 
             const btn = document.getElementById('generatePixButton');
 
-            // 1. VALIDAÇÃO DO FORMULÁRIO
             if (!form.checkValidity()) {
                 form.reportValidity();
                 return;
             }
 
-            // 2. COLETA DOS DADOS REAIS DO PAGADOR
             const payerData = {
                 email: document.getElementById('payerEmail').value,
                 first_name: document.getElementById('payerFirstName').value,
@@ -118,7 +110,6 @@
             pixOutputContainer.innerHTML = '<p class="text-indigo-500">Gerando QR Code e Chave PIX. Aguarde...</p>';
             pixOutputContainer.classList.remove('hidden'); 
 
-            // 3. CORPO DA REQUISIÇÃO
             const paymentBody = {
                 transaction_amount: projeto.valorProjeto,
                 description: `Projeto: ${projeto.tipoProjeto || 'Sem Nome'}`,
@@ -144,21 +135,17 @@
                     return;
                 }
                 
-                // Converte para JSON
                 const data = JSON.parse(responseText); 
 
                 if (data.qr_code_base64) {
-                    // SUCESSO: Exibe o QR Code e a chave
                     const valorFormatado = projeto.valorProjeto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     
-                    document.getElementById('payerForm').style.display = 'none'; // ESCONDE O FORMULÁRIO
+                    document.getElementById('payerForm').style.display = 'none'; 
                     
-                    // Variáveis do Timer
-                    const EXPIRATION_TIME_SECONDS = 600; // 10 minutos
+                    const EXPIRATION_TIME_SECONDS = 600; 
                     let remainingTime = EXPIRATION_TIME_SECONDS;
                     let timerInterval;
                     
-                    // --- RENDERIZAÇÃO DO QR CODE COM TIMER ---
                     document.getElementById('payment-section').classList.add('p-8'); 
                     document.getElementById('payment-section').innerHTML = `
                         <h3 class="text-2xl font-bold text-green-600 mb-2 text-center">PIX Gerado com Sucesso!</h3>
@@ -187,7 +174,6 @@
                         </p>
                     `;
 
-                    // Lógica do Timer
                     const timerElement = document.getElementById('pixTimer');
                     const copyButton = document.getElementById('copyPixButton');
                     const timerContainer = document.querySelector('.bg-red-50');
@@ -204,26 +190,20 @@
                             copyButton.disabled = true;
                             copyButton.textContent = "QR Code Expirado";
                             
-                            // ATUALIZADO: Chama a tela de monitoramento passando os dados
                             startPaymentMonitoring(data, valorFormatado);
                         } else if (remainingTime <= 60) {
-                            // Alerta visual no último minuto
                             timerContainer.classList.add('animate-pulse');
                         }
                     };
 
-                    // Inicia o contador
                     timerInterval = setInterval(updateTimer, 1000);
 
-                    // Chama a tela de monitoramento de qualquer forma após o tempo expirar (em 10 minutos)
                     setTimeout(() => {
-                        clearInterval(timerInterval); // Garante que o timer pare
-                        // ATUALIZADO: Chama a tela de monitoramento passando os dados
+                        clearInterval(timerInterval); 
                         startPaymentMonitoring(data, valorFormatado);
                     }, EXPIRATION_TIME_SECONDS * 1000);
 
                 } else {
-                    // ERRO DA API - Retorno do Mercado Pago
                     console.error("Erro retornado pelo Mercado Pago:", data.error);
                     pixOutputContainer.innerHTML = `<p class="text-red-500">Falha na geração do PIX. Erro MP: ${data.error || 'Desconhecido'}</p>`;
                     btn.disabled = false;
@@ -236,22 +216,17 @@
             }
         };
 
-        // --- RENDERIZAÇÃO DA PÁGINA (Mantém o formulário) ---
+        // --- RENDERIZAÇÃO DA PÁGINA (USANDO ID FIXO) ---
         const renderPurchasePage = async (docId) => {
             const container = document.getElementById('purchase-container');
             
-            if (!docId) {
-                container.innerHTML = `<p class="text-red-500 text-lg">Projeto não encontrado. ID ausente na URL.</p>`;
-                return;
-            }
-
             try {
-                // 1. Busca o documento no Firestore
+                // 1. Busca o documento no Firestore com o ID FIXO
                 const projectRef = doc(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`, docId);
                 const projectSnap = await getDoc(projectRef);
 
                 if (!projectSnap.exists()) {
-                    container.innerHTML = `<p class="text-red-500 text-lg">Projeto com ID ${docId} não encontrado.</p>`;
+                    container.innerHTML = `<p class="text-red-500 text-lg">Erro: Projeto com ID ${docId} não encontrado no banco de dados. Verifique o ID.</p>`;
                     return;
                 }
 
@@ -261,7 +236,7 @@
                 const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 const comodosDetalhe = formatComodosList(projeto.listaComodos);
 
-                // Renderiza o formulário e o botão
+                // Renderiza o formulário
                 container.innerHTML = `
                     <h2 class="text-3xl font-extrabold text-indigo-700 mb-6">${title}</h2>
                     
@@ -323,8 +298,8 @@
                     if (!user) {
                         await signInAnonymously(auth);
                     }
-                    const projectId = getProjectIdFromUrl();
-                    renderPurchasePage(projectId);
+                    // Usa o ID fixo
+                    renderPurchasePage(FIXED_PROJECT_ID); 
                 });
             }
 
