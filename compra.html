@@ -65,6 +65,9 @@
         const renderPurchasePage = async (projectId) => {
             const container = document.getElementById('purchase-container');
             
+            // DEBUG: Garante que o ID está sendo lido
+            console.log("Tentativa de buscar ID:", projectId);
+
             if (!projectId) {
                 container.innerHTML = `<p class="text-red-500 text-lg font-bold">ERRO: ID do Projeto não encontrado na URL. <br>Volte para a galeria e clique no botão 'Comprar'.</p>`;
                 return;
@@ -159,27 +162,27 @@
                     </div>
                 `;
 
-                } catch (error) {
-                    console.error("ERRO CRÍTICO NA BUSCA:", error);
-                    container.innerHTML = `<p class="text-red-500 text-lg">Erro ao carregar o projeto. Verifique as **Regras de Leitura** no Firestore. Detalhes no Console.</p>`;
-                }
-            };
-
-            // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA POR ID ---
-            const loadPurchaseData = () => {
-                 onAuthStateChanged(auth, async (user) => {
-                    if (!user) {
-                        // Tenta autenticar anonimamente (necessário para ler o Firestore)
-                        await signInAnonymously(auth);
-                    }
-                    const projectId = getProjectIdFromUrl();
-                    renderPurchasePage(projectId);
-                });
+            } catch (error) {
+                console.error("ERRO CRÍTICO NA BUSCA:", error);
+                container.innerHTML = `<p class="text-red-500 text-lg">Erro ao carregar o projeto. Detalhes no Console F12.</p>`;
             }
+        };
 
-            // Inicia o processo de carregamento
-            loadPurchaseData();
-        </script>
+        // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA POR ID ---
+        const loadPurchaseData = () => {
+             onAuthStateChanged(auth, async (user) => {
+                if (!user) {
+                    // Tenta autenticar anonimamente (necessário para ler o Firestore)
+                    await signInAnonymously(auth);
+                }
+                const projectId = getProjectIdFromUrl();
+                renderPurchasePage(projectId);
+            });
+        }
+
+        // Inicia o processo de carregamento
+        loadPurchaseData();
+    </script>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 p-4 md:p-8">
     <div class="container mx-auto max-w-2xl">
