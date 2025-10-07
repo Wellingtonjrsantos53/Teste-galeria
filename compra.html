@@ -8,7 +8,6 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // onAuthStateChanged é essencial para garantir a autenticação anônima antes da busca
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
         // IMPORTAÇÕES CORRETAS: getDoc e doc para buscar por ID
@@ -35,7 +34,7 @@
         
         // --- Funções de Ajuda ---
         
-        // FUNÇÃO CRUCIAL: Obtém o ID do projeto da URL (ex: ?id=abc12345)
+        // 1. FUNÇÃO CRUCIAL: Obtém o ID do projeto da URL (ex: ?id=abc12345)
         const getProjectIdFromUrl = () => {
             const params = new URLSearchParams(window.location.search);
             return params.get('id'); // Retorna o valor do parâmetro 'id'
@@ -54,9 +53,7 @@
             return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         };
 
-        // As funções de pagamento (createPixPayment e startPaymentMonitoring) devem ser mantidas
-        // aqui para a funcionalidade completa. (Omitidas para brevidade neste código, mas 
-        // certifique-se de que elas estejam no seu arquivo final.)
+        // As funções de pagamento (createPixPayment e startPaymentMonitoring) devem estar aqui
         window.createPixPayment = async (projeto) => { 
              /* CÓDIGO DA FUNÇÃO createPixPayment AQUI */ 
              console.log("Iniciando pagamento para:", projeto);
@@ -74,7 +71,7 @@
             }
 
             try {
-                // CAMINHO EXATO: Usa o ID para buscar o documento único
+                // 1. Busca o documento exato pelo ID
                 const CAMINHO_COMPLETO_DA_COLECAO = `artifacts/galeria-do-site-duplicado/public/data/galleries`;
                 const docRef = doc(db, CAMINHO_COMPLETO_DA_COLECAO, projectId);
                 
@@ -87,12 +84,20 @@
 
                 const projeto = docSnap.data();
                 
+                // 2. FILTRO DE SEGURANÇA: Verifica se o projeto é um "Projeto pronto"
+                if (projeto.tipoProjeto !== "Projetos prontos") {
+                    container.innerHTML = `<p class="text-red-500 text-lg font-bold">ACESSO NEGADO: Este projeto (${projeto.tipoProjeto}) não está marcado como 'Pronto para Compra'.</p>`;
+                    return;
+                }
+                
+                // --- SE PASSAR PELA VERIFICAÇÃO, CONTINUA A RENDERIZAÇÃO ---
+                
                 const title = projeto.tipoProjeto || 'Projeto Sem Nome';
                 const valor = projeto.valorProjeto || 0;
                 const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 const comodosDetalhe = formatComodosList(projeto.listaComodos);
 
-                // Tenta extrair a URL da primeira imagem para exibição (que causou o erro 404)
+                // Tenta extrair a URL da primeira imagem para exibição 
                 const imageUrl = (projeto.images && projeto.images.length > 0) 
                                  ? projeto.images[0].url 
                                  : 'https://placehold.co/600x400/CCCCCC/000000?text=IMAGEM+AUSENTE';
@@ -164,7 +169,7 @@
             const loadPurchaseData = () => {
                  onAuthStateChanged(auth, async (user) => {
                     if (!user) {
-                        // Tenta autenticar anonimamente
+                        // Tenta autenticar anonimamente (necessário para ler o Firestore)
                         await signInAnonymously(auth);
                     }
                     const projectId = getProjectIdFromUrl();
