@@ -25,6 +25,7 @@
         };
         
         // --- VARIÁVEIS GERAIS ---
+        // Variáveis da API Vercel/PIX
         const API_BASE_URL = 'https://pagamento-de-projetosvercelapp-wellingtons-projects-02014e31.vercel.app'; 
         const PAYMENT_ENDPOINT = '/create_payment'; 
 
@@ -34,10 +35,9 @@
         
         // --- Funções de Ajuda ---
         
-        // 1. FUNÇÃO CRUCIAL: Obtém o ID do projeto da URL (ex: ?id=abc12345)
         const getProjectIdFromUrl = () => {
             const params = new URLSearchParams(window.location.search);
-            return params.get('id'); // Retorna o valor do parâmetro 'id'
+            return params.get('id');
         };
 
         const formatComodosList = (listaComodos) => {
@@ -53,13 +53,172 @@
             return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         };
 
-        // As funções de pagamento (createPixPayment e startPaymentMonitoring) devem estar aqui
-        window.createPixPayment = async (projeto) => { 
-             /* CÓDIGO DA FUNÇÃO createPixPayment AQUI */ 
-             console.log("Iniciando pagamento para:", projeto);
-             alert("A função de pagamento deve estar aqui.");
+        // NOVO: Função de monitoramento de pagamento (Tela de Agradecimento Simples)
+        const startPaymentMonitoring = (data, valorFormatado) => {
+            const paymentSection = document.getElementById('payment-section');
+            paymentSection.classList.remove('p-8');
+            
+            paymentSection.innerHTML = `
+                <div class="text-center p-8 bg-yellow-50 rounded-lg shadow-xl border-4 border-yellow-300 mb-6">
+                    <svg class="mx-auto h-12 w-12 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 class="text-2xl font-bold text-yellow-700 mt-3">Verificando Pagamento...</h3>
+                    <p class="text-gray-600 mt-2">Estamos aguardando a confirmação do PIX. Se você ainda não pagou, pode usar os dados abaixo.</p>
+                </div>
+                
+                <div class="bg-white p-6 rounded-lg shadow-xl border-2 border-indigo-200">
+                    <p class="text-gray-600 mb-6 text-center">Valor a Pagar: **${valorFormatado}**</p>
+                    
+                    <img src="data:image/jpeg;base64,${data.qr_code_base64}" 
+                        alt="QR Code PIX" 
+                        class="mx-auto border-4 border-indigo-500 p-2 rounded-lg mb-6 w-52 h-52 shadow-xl"/>
+                    
+                    <div class="bg-gray-100 p-4 rounded-lg mb-4">
+                        <strong class="block text-sm text-gray-700 mb-1">Chave Copia e Cola:</strong>
+                        <span id="pixCode" class="font-mono text-xs text-gray-800 break-all">${data.qr_code_text}</span>
+                    </div>
+                    
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('pixCode').textContent)" class="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-colors">
+                        Copiar Chave PIX
+                    </button>
+                    <button onclick="window.location.reload()" class="mt-4 w-full py-2 bg-gray-400 hover:bg-gray-500 text-white font-bold rounded-lg transition-colors">
+                        Recarregar para Verificar
+                    </button>
+                </div>
+            `;
         };
 
+        // RESTAURADO: A função principal para gerar o PIX
+        window.createPixPayment = async (projeto) => {
+            const form = document.getElementById('payerForm');
+            const pixOutputContainer = document.getElementById('pix-output-container'); 
+            const btn = document.getElementById('generatePixButton');
+
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const payerData = {
+                email: document.getElementById('payerEmail').value,
+                first_name: document.getElementById('payerFirstName').value,
+                last_name: document.getElementById('payerLastName').value,
+                identification: {
+                    type: 'CPF',
+                    number: document.getElementById('payerDocument').value.replace(/\D/g, '')
+                }
+            };
+
+            btn.disabled = true;
+            pixOutputContainer.innerHTML = '<p class="text-indigo-500">Gerando QR Code e Chave PIX. Aguarde...</p>';
+            pixOutputContainer.classList.remove('hidden'); 
+
+            const paymentBody = {
+                transaction_amount: projeto.valorProjeto,
+                description: `Projeto: ${projeto.tipoProjeto || 'Sem Nome'}`,
+                payment_method_id: 'pix', 
+                payer: payerData,
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}${PAYMENT_ENDPOINT}`, { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(paymentBody),
+                });
+
+                const responseText = await response.text();
+
+                if (!response.ok) {
+                    console.error("Erro HTTP:", response.status, responseText);
+                    pixOutputContainer.innerHTML = `<p class="text-red-500">Erro na API. Status: ${response.status}. Verifique os logs do Vercel.</p>`;
+                    btn.disabled = false;
+                    return;
+                }
+                
+                const data = JSON.parse(responseText); 
+
+                if (data.qr_code_base64) {
+                    const valorFormatado = projeto.valorProjeto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    
+                    document.getElementById('payerForm').style.display = 'none'; 
+                    
+                    const EXPIRATION_TIME_SECONDS = 600; 
+                    let remainingTime = EXPIRATION_TIME_SECONDS;
+                    let timerInterval;
+                    
+                    document.getElementById('payment-section').classList.add('p-8'); 
+                    document.getElementById('payment-section').innerHTML = `
+                        <h3 class="text-2xl font-bold text-green-600 mb-2 text-center">PIX Gerado com Sucesso!</h3>
+                        <p class="text-gray-600 mb-6 text-center">Leia o QR Code abaixo para pagar **${valorFormatado}** e finalizar sua compra.</p>
+                        
+                        <div class="bg-red-50 border-2 border-red-300 p-3 rounded-lg text-center mb-6 max-w-sm mx-auto">
+                            <strong class="text-sm text-red-700 block">Tempo Restante para o Pagamento:</strong>
+                            <span id="pixTimer" class="text-3xl font-extrabold text-red-600">${formatTime(remainingTime)}</span>
+                        </div>
+
+                        <img src="data:image/jpeg;base64,${data.qr_code_base64}" 
+                            alt="QR Code PIX" 
+                            class="mx-auto border-4 border-indigo-500 p-2 rounded-lg mb-6 w-52 h-52 shadow-xl"/>
+                        
+                        <div class="bg-gray-100 p-4 rounded-lg mb-4">
+                            <strong class="block text-sm text-gray-700 mb-1">Chave Copia e Cola:</strong>
+                            <span id="pixCode" class="font-mono text-xs text-gray-800 break-all">${data.qr_code_text}</span>
+                        </div>
+                        
+                        <button id="copyPixButton" onclick="navigator.clipboard.writeText(document.getElementById('pixCode').textContent)" class="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-colors">
+                            Copiar Chave PIX
+                        </button>
+
+                        <p class="text-xs text-gray-400 mt-4 text-center">
+                            Referência de Pagamento: ${data.payment_id}
+                        </p>
+                    `;
+
+                    const timerElement = document.getElementById('pixTimer');
+                    const copyButton = document.getElementById('copyPixButton');
+                    const timerContainer = document.querySelector('.bg-red-50');
+
+                    const updateTimer = () => {
+                        remainingTime--;
+                        timerElement.textContent = formatTime(remainingTime);
+
+                        if (remainingTime <= 0) {
+                            clearInterval(timerInterval);
+                            timerElement.textContent = "EXPIRADO";
+                            timerContainer.classList.remove('bg-red-50', 'border-red-300', 'animate-pulse');
+                            timerContainer.classList.add('bg-gray-200', 'border-gray-400');
+                            copyButton.disabled = true;
+                            copyButton.textContent = "QR Code Expirado";
+                            
+                            startPaymentMonitoring(data, valorFormatado);
+                        } else if (remainingTime <= 60) {
+                            timerContainer.classList.add('animate-pulse');
+                        }
+                    };
+
+                    timerInterval = setInterval(updateTimer, 1000);
+
+                    setTimeout(() => {
+                        clearInterval(timerInterval); 
+                        startPaymentMonitoring(data, valorFormatado);
+                    }, EXPIRATION_TIME_SECONDS * 1000);
+
+                } else {
+                    console.error("Erro retornado pelo Mercado Pago:", data.error);
+                    pixOutputContainer.innerHTML = `<p class="text-red-500">Falha na geração do PIX. Erro MP: ${data.error || 'Desconhecido'}</p>`;
+                    btn.disabled = false;
+                }
+
+            } catch (e) {
+                console.error("Erro fatal na comunicação:", e);
+                pixOutputContainer.innerHTML = `<p class="text-red-500">Falha ao conectar com o servidor. Tente novamente mais tarde.</p>`;
+                btn.disabled = false;
+            }
+        };
 
         // --- RENDERIZAÇÃO DA PÁGINA COM OS DADOS DO PROJETO ---
         const renderPurchasePage = async (projectId) => {
@@ -172,7 +331,6 @@
         const loadPurchaseData = () => {
              onAuthStateChanged(auth, async (user) => {
                 if (!user) {
-                    // Tenta autenticar anonimamente (necessário para ler o Firestore)
                     await signInAnonymously(auth);
                 }
                 const projectId = getProjectIdFromUrl();
