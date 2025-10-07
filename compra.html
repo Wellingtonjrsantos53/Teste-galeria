@@ -32,7 +32,7 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         
-        // --- Funções de Ajuda (mantidas) ---
+        // --- Funções de Ajuda ---
         
         const formatComodosList = (listaComodos) => {
             if (!listaComodos || listaComodos.length === 0) {
@@ -214,7 +214,7 @@
             }
         };
 
-        // --- RENDERIZAÇÃO DA PÁGINA COM OS DADOS DO PROJETO --- (mantida)
+        // --- RENDERIZAÇÃO DA PÁGINA COM OS DADOS DO PROJETO (INCLUI DEBBUG DA IMAGEM) ---
         const renderPurchasePage = async (projeto) => {
             const container = document.getElementById('purchase-container');
             
@@ -226,7 +226,7 @@
                         <ul class="list-disc list-inside mt-2 ml-4 text-sm">
                             <li>Se há projetos na coleção 'galleries' do Firestore.</li>
                             <li>Se as **Regras de Segurança** do Firestore permitem a leitura.</li>
-                            <li>Se o **Índice** de ordenação `orderBy('createdAt', 'desc')` foi criado (procure no console F12).</li>
+                            <li>Se o **Índice** de ordenação \`orderBy('createdAt', 'desc')\` foi criado (procure no console F12).</li>
                         </ul>
                     </p>
                 `;
@@ -240,6 +240,9 @@
                 const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 const comodosDetalhe = formatComodosList(projeto.listaComodos);
 
+                // NOVO: Tenta extrair a URL da primeira imagem para exibição
+                const imageUrl = (projeto.images && projeto.images.length > 0) ? projeto.images[0].url : 'https://placehold.co/600x400/CCCCCC/000000?text=IMAGEM+AUSENTE';
+
                 // Renderiza o formulário e o resumo do pedido
                 container.innerHTML = `
                     <h2 class="text-3xl font-extrabold text-indigo-700 mb-6">${title}</h2>
@@ -247,6 +250,12 @@
                     <div class="bg-white p-6 rounded-lg shadow-md mb-8">
                         <h3 class="text-xl font-bold mb-4 text-gray-700">Resumo do Pedido</h3>
                         <div class="space-y-2 text-gray-600">
+                            
+                            <div class="mb-4 w-full h-48 bg-gray-200 rounded-lg overflow-hidden border">
+                                <img src="${imageUrl}" 
+                                     alt="Pré-visualização do Projeto" 
+                                     class="w-full h-full object-cover"/>
+                            </div>
                             <p><strong>Tipo:</strong> ${title}</p>
                             <p><strong>Cômodos:</strong> ${comodosDetalhe}</p>
                             <p class="text-2xl font-bold text-green-600 border-t pt-2 mt-2">Valor Total: ${valorFormatado}</p>
@@ -296,7 +305,7 @@
                 }
             };
 
-            // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA AUTOMÁTICA (Corrigida com o Caminho Exato) ---
+            // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA AUTOMÁTICA (Com o Caminho Exato) ---
             const loadPurchaseData = async () => {
                 const container = document.getElementById('purchase-container');
                 let latestProjectData = null;
@@ -313,8 +322,7 @@
                         throw new Error("Falha de autenticação anônima do Firebase.");
                     }
                     
-                    // CORREÇÃO FINAL DO CAMINHO: Usa o caminho exato que você forneceu.
-                    // ATENÇÃO: Se o erro persistir, o problema é o Índice de Ordenação (F12) ou Regras.
+                    // CAMINHO CORRIGIDO: Usa o caminho exato fornecido:
                     const CAMINHO_COMPLETO_DO_FIREBASE = `artifacts/galeria-do-site-duplicado/public/data/galleries`;
 
                     const galleriesRef = collection(db, CAMINHO_COMPLETO_DO_FIREBASE);
@@ -348,8 +356,7 @@
                     container.innerHTML = `
                         <p class="text-red-500 text-lg font-bold">ERRO FATAL DE COMUNICAÇÃO.</p>
                         <p class="text-gray-600 mt-2">
-                            O caminho foi verificado, mas a busca falhou. Verifique o **Console (F12)**. 
-                            Você deve criar o Índice de Ordenação se o link for exibido.
+                            A busca falhou. Verifique se o Índice de Ordenação foi criado. Detalhes no **Console (F12)**.
                         </p>
                     `;
                 }
