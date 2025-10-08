@@ -8,7 +8,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // REMOVIDO: 'orderBy' pois não será mais usado
         import { getFirestore, onSnapshot, collection, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase Configuration ---
@@ -120,7 +119,7 @@
                 console.error("Usuário não autenticado. Não é possível configurar o listener do Firestore.");
                 return;
             }
-            // CORREÇÃO: Removido 'orderBy' para evitar erro de índice no Firestore.
+            // FILTRO ATIVO: Apenas "Projetos prontos" - REMOVIDO orderBy para evitar erro de índice
             const q = query(
                 collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`),
                 where('tipoProjeto', '==', 'Projetos prontos')
@@ -160,7 +159,9 @@
             const valorFormatado = (portfolioItem.valorProjeto || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             const comodosDetalhe = formatComodosList(portfolioItem.listaComodos);
             const descricaoProjeto = portfolioItem.descricaoProjeto || 'Nenhuma descrição fornecida.';
-            const projectId = portfolioItem.id; // ID do projeto para o link de compra
+            
+            // CORREÇÃO DE CONFIABILIDADE: Usar sempre o ID do documento
+            const projectId = portfolioItem.id;
             
             // --- LOG DE DEBUG NO INDEX.HTML ---
             console.log("INDEX.HTML DEBUG: ID do projeto capturado para o link:", projectId); 
