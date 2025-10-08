@@ -38,7 +38,6 @@
                 await signInAnonymously(auth);
             }
             setupListeners();
-            // A remoção do loading é garantida dentro de renderGallery
         });
 
         // --- UI Functions ---
@@ -86,13 +85,10 @@
                     const photoCard = document.createElement('div');
                     photoCard.classList.add('bg-white', 'rounded-lg', 'shadow-xl', 'p-4', 'flex', 'flex-col', 'items-center', 'space-y-2', 'cursor-pointer', 'transform', 'hover:scale-[1.03]', 'transition-all');
                     
-                    // MANTIDO: O clique que chama o showPortfolioImages
                     photoCard.onclick = () => window.showPortfolioImages(projeto.id);
                     
-                    // Pega a primeira imagem para o preview
                     const previewImage = projeto.images && projeto.images.length > 0 ? projeto.images[0].url : 'https://placehold.co/600x400/0095f6/ffffff?text=Projeto';
                     
-                    // Novos campos
                     const tipoProjeto = projeto.tipoProjeto || 'Projeto';
                     const comodosResumo = formatComodosList(projeto.listaComodos);
                     const valorFormatado = (projeto.valorProjeto || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -113,7 +109,6 @@
                 });
             }
             
-            // GARANTIA: Esconde o loading e mostra a aplicação SOMENTE depois da renderização
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
         };
@@ -124,7 +119,6 @@
                 return;
             }
             
-            // Usando query apenas com 'where', sem 'orderBy' para evitar erros de índice.
             const q = query(
                 collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`),
                 where('tipoProjeto', '==', 'Projetos prontos')
@@ -132,20 +126,30 @@
             
             onSnapshot(q, (querySnapshot) => {
                 state.photos = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderGallery(); // Chama renderização, que garante a exibição
+                renderGallery();
             }, (error) => {
                 console.error("Erro no listener de snapshot:", error);
                 showMessage('Erro ao carregar projetos. Verifique as permissões.', 'error');
                 
-                // Em caso de erro, ainda mostra o contêiner
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('app-container').classList.remove('hidden');
             });
         };
         
+        // Função placeholder para manipulação das estrelas
+        window.rateProject = (projectId, rating) => {
+            showMessage(`Você classificou o projeto ${projectId.substring(0, 4)}... com ${rating} estrelas! (Lógica de salvamento necessária)`, 'info');
+            // FUTURO: Implementar a lógica para salvar a classificação no Firestore
+        };
+
+        // Função placeholder para manipulação das reações
+        window.reactToProject = (projectId, reaction) => {
+            showMessage(`Você reagiu ao projeto ${projectId.substring(0, 4)}... com ${reaction}! (Lógica de salvamento necessária)`, 'info');
+            // FUTURO: Implementar a lógica para salvar a reação no Firestore
+        };
+        
         // --- MODAL DE VISUALIZAÇÃO ---
         window.showPortfolioImages = (docId) => {
-            // CORREÇÃO ROBUSTA: Se docId estiver faltando, mostra mensagem de erro e retorna.
             if (!docId) {
                 console.error("ERRO: ID do documento é nulo ou indefinido.");
                 showMessage('Erro ao carregar detalhes: ID do projeto não encontrado.', 'error');
@@ -154,7 +158,6 @@
             
             const portfolioItem = state.photos.find(p => p.id === docId);
             
-            // CORREÇÃO ROBUSTA: Se o item não for encontrado (talvez porque a lista ainda não carregou), retorna.
             if (!portfolioItem || !portfolioItem.images || portfolioItem.images.length === 0) {
                 showMessage('Detalhes ou imagens não encontrados. Tente recarregar a página.', 'info');
                 return;
@@ -179,9 +182,9 @@
             const comodosDetalhe = formatComodosList(portfolioItem.listaComodos);
             const descricaoProjeto = portfolioItem.descricaoProjeto || 'Nenhuma descrição fornecida.';
             
-            const projectId = portfolioItem.id; // Garante que o ID do documento é usado
+            const projectId = portfolioItem.id;
             
-            // CORREÇÃO DO LINK: Cria o link usando o ID do documento do Firestore
+            // CONSTRUÇÃO DO LINK DE COMPRA (Validado)
             const isIdValid = !!projectId; 
             const linkHref = isIdValid ? `compra.html?id=${projectId}` : '#';
             const linkClass = isIdValid ? 
@@ -190,7 +193,36 @@
             const linkText = isIdValid ? 'Comprar Projeto' : 'ID do Projeto Ausente';
 
 
-            // Monta o HTML com os detalhes e o BOTÃO DE COMPRA ENVIANDO O ID
+            // --- NOVO BLOCO DE CLASSIFICAÇÃO E REAÇÕES ---
+            const ratingAndReactionHtml = `
+                <div class="mt-4 pt-4 border-t border-gray-700 space-y-4">
+                    <div class="text-center">
+                        <p class="text-sm font-semibold text-indigo-300 mb-2">Classifique o Projeto:</p>
+                        <div class="flex justify-center space-x-1 text-2xl text-yellow-400">
+                            ${[5, 4, 3, 2, 1].map(star => `
+                                <button onclick="window.rateProject('${projectId}', ${star})" aria-label="${star} estrelas" class="hover:scale-110 transition-transform focus:outline-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M9.049 2.927c.3-.921 1.691-.921 1.99 0l1.242 3.824a1 1 0 00.95.691h4.027c.969 0 1.371 1.243.588 1.81L14.71 12.33c-.3.22-.457.536-.457.863v4.027c0 .969-1.243 1.371-1.81.588l-3.824-1.242a1 1 0 00-.691 0L5.94 17.81c-.567.567-1.81.165-1.81-.796v-4.027c0-.327-.157-.643-.457-.863L2.24 9.352c-.783-.567-.381-1.81.588-1.81h4.027c.367 0 .707-.202.95-.588l1.242-3.824z" />
+                                    </svg>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <p class="text-sm font-semibold text-indigo-300 mb-2">Reaja:</p>
+                        <div class="flex justify-center space-x-3 text-2xl">
+                            <button onclick="window.reactToProject('${projectId}', 'Curtir')" aria-label="Curtir" class="text-green-500 hover:scale-125 transition-transform focus:outline-none">👍</button>
+                            <button onclick="window.reactToProject('${projectId}', 'Descurtir')" aria-label="Descurtir" class="text-red-500 hover:scale-125 transition-transform focus:outline-none">👎</button>
+                            <button onclick="window.reactToProject('${projectId}', 'Amei')" aria-label="Amei" class="text-pink-500 hover:scale-125 transition-transform focus:outline-none">❤️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            // --- FIM NOVO BLOCO ---
+
+
+            // Monta o HTML com os detalhes, o BOTÃO DE COMPRA E A NOVA INTERATIVIDADE
             const detailsHtml = `
                 <div class="space-y-3">
                     <div class="flex flex-wrap gap-x-4">
@@ -210,6 +242,8 @@
                 <a href="${linkHref}" class="${linkClass}">
                     ${linkText}
                 </a>
+                
+                ${ratingAndReactionHtml}
             `;
 
             // Aplica os detalhes no container desktop
