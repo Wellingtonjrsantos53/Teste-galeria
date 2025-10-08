@@ -40,16 +40,6 @@
             setupListeners();
         });
 
-        // --- NOVA FUNÇÃO: SALVA O ID E REDIRECIONA ---
-        window.startPurchase = (projectId) => {
-            if (projectId) {
-                localStorage.setItem('currentProjectId', projectId);
-                window.location.href = 'compra.html'; // Redireciona sem o ID na URL
-            } else {
-                showMessage('Erro: Não foi possível iniciar a compra. ID do projeto ausente.', 'error');
-            }
-        };
-
         // --- FUNÇÃO FIREBASE PARA SALVAR FEEDBACK (VOTO ou REAÇÃO) ---
         const saveProjectFeedback = async (projectId, type, value) => {
             if (!auth.currentUser || !projectId) {
@@ -157,6 +147,7 @@
         };
 
         const generateDisplayStars = (rating) => {
+            // Estrelas de visualização para o grid e modal
             const fullStars = Math.round(rating); 
             let html = '';
             const fullStarSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 fill-current text-yellow-400" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.691-.921 1.99 0l1.242 3.824a1 1 0 00.95.691h4.027c.969 0 1.371 1.243.588 1.81L14.71 12.33c-.3.22-.457.536-.457.863v4.027c0 .969-1.243 1.371-1.81.588l-3.824-1.242a1 1 0 00-.691 0L5.94 17.81c-.567.567-1.81.165-1.81-.796v-4.027c0-.327-.157-.643-.457-.863L2.24 9.352c-.783-.567-.381-1.81.588-1.81h4.027c.367 0 .707-.202.95-.588l1.242-3.824z" /></svg>`;
@@ -183,12 +174,12 @@
                 state.photos.forEach(projeto => {
                     const photoCard = document.createElement('div');
                     
-                    // NOVO: Adiciona o ID do documento como um atributo de dado no elemento
+                    // Adiciona o ID do documento como um atributo de dado no elemento
                     photoCard.setAttribute('data-project-id', projeto.id);
                     
                     photoCard.classList.add('bg-white', 'rounded-lg', 'shadow-xl', 'p-4', 'flex', 'flex-col', 'items-center', 'space-y-2', 'cursor-pointer', 'transform', 'hover:scale-[1.03]', 'transition-all');
                     
-                    // NOVO: Chama a nova função 'showModalFromCard', que lê o ID do atributo data
+                    // Chama a nova função 'showModalFromCard', que lê o ID do atributo data
                     photoCard.onclick = (e) => window.showModalFromCard(e.currentTarget);
                     
                     const previewImage = projeto.images && projeto.images.length > 0 ? projeto.images[0].url : 'https://placehold.co/600x400/0095f6/ffffff?text=Projeto';
@@ -320,12 +311,11 @@
             const ratingCount = portfolioItem.ratingCount || 0; 
             // --- FIM EXTRAÇÃO ---
             
-            // CONSTRUÇÃO DO BOTÃO DE COMPRA (AGORA CHAMA startPurchase)
+            // CONSTRUÇÃO DO BOTÃO DE COMPRA
             const isIdValid = !!projectId; 
-            const buttonOnClick = isIdValid ? `window.startPurchase('${projectId}')` : 'void(0)';
             const buttonClass = isIdValid ? 
-                              'block mt-4 w-full text-center py-2 px-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold transition-colors shadow-lg cursor-pointer' :
-                              'block mt-4 w-full text-center py-2 px-4 rounded-lg bg-gray-400 text-white font-bold cursor-not-allowed';
+                              'w-full py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors' :
+                              'w-full py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gray-400 cursor-not-allowed';
             const buttonText = isIdValid ? 'Comprar Projeto' : 'ID do Projeto Ausente';
 
 
@@ -394,9 +384,12 @@
                     </div>
                 </div>
                 
-                <button onclick="${buttonOnClick}" class="${buttonClass}">
-                    ${buttonText}
-                </button>
+                <form action="compra.html" method="GET" class="mt-4">
+                    <input type="hidden" name="id" value="${projectId}" />
+                    <button type="submit" class="${buttonClass}" ${!isIdValid ? 'disabled' : ''}>
+                        ${buttonText}
+                    </button>
+                </form>
                 
                 ${ratingAndReactionHtml}
             `;
