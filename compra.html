@@ -8,8 +8,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        
+        // REMOVIDO onAuthStateChanged
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, getDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- CONFIGURAÇÃO FIREBASE ---
@@ -27,9 +27,10 @@
         const API_BASE_URL = 'https://pagamento-de-projetosvercelapp-wellingtons-projects-02014e31.vercel.app'; 
         const PAYMENT_ENDPOINT = '/create_payment'; 
 
+        // Inicialização de variáveis no escopo global
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const auth = getAuth(app); // 'auth' está definido aqui
+        const auth = getAuth(app); 
         
         // --- Funções de Ajuda ---
         
@@ -222,7 +223,6 @@
         const renderPurchasePage = async (projectId) => {
             const container = document.getElementById('purchase-container');
             
-            // DEBUG: Garante que o ID está sendo lido
             console.log("Tentativa de buscar ID:", projectId);
 
             if (!projectId) {
@@ -325,18 +325,24 @@
             }
         };
 
-        // --- FUNÇÃO PRINCIPAL QUE INICIA A BUSCA POR ID (REMOVIDA E SEU CONTEÚDO EXECUTADO ABAIXO) ---
-        
-        // CORREÇÃO: Executa o carregamento de dados DENTRO do callback onAuthStateChanged
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
+        // --- FUNÇÃO PRINCIPAL DE INICIALIZAÇÃO CORRIGIDA ---
+        const startApp = async () => {
+            try {
+                // 1. Autentica anonimamente antes de qualquer busca
                 await signInAnonymously(auth);
-            }
-            // Inicia o processo de carregamento dos dados após a autenticação (seja ela anônima ou não)
-            const projectId = getProjectIdFromUrl();
-            renderPurchasePage(projectId);
-        });
 
+                // 2. Carrega os dados da compra
+                const projectId = getProjectIdFromUrl();
+                await renderPurchasePage(projectId);
+            } catch (error) {
+                console.error("Erro durante a inicialização/autenticação:", error);
+                document.getElementById('purchase-container').innerHTML = 
+                    `<p class="text-red-500 text-lg font-bold">Erro Crítico: Não foi possível conectar ao Firebase ou autenticar.</p>`;
+            }
+        };
+
+        // Inicia o processo de carregamento de forma assíncrona
+        startApp();
     </script>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 p-4 md:p-8">
