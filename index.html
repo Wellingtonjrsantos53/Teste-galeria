@@ -8,7 +8,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, onSnapshot, collection, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // REMOVIDO: 'orderBy' pois não será mais usado
+        import { getFirestore, onSnapshot, collection, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase Configuration ---
         const firebaseConfig = {
@@ -119,11 +120,10 @@
                 console.error("Usuário não autenticado. Não é possível configurar o listener do Firestore.");
                 return;
             }
-            // FILTRO ATIVO: Apenas "Projetos prontos"
+            // CORREÇÃO: Removido 'orderBy' para evitar erro de índice no Firestore.
             const q = query(
                 collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`),
-                where('tipoProjeto', '==', 'Projetos prontos'),
-                orderBy('timestamp', 'desc')
+                where('tipoProjeto', '==', 'Projetos prontos')
             );
             onSnapshot(q, (querySnapshot) => {
                 state.photos = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
