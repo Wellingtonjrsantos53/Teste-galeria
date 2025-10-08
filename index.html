@@ -8,7 +8,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // Importa funções para manipulação de documentos e transações
         import { getFirestore, onSnapshot, collection, query, where, doc, setDoc, updateDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase Configuration ---
@@ -36,7 +35,6 @@
         
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                // Garante que o usuário anônimo está logado para ter um UID para votação
                 await signInAnonymously(auth);
             }
             setupListeners();
@@ -50,9 +48,7 @@
             }
 
             const userId = auth.currentUser.uid;
-            // Caminho para o documento de voto individual
             const voteRef = doc(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries/${projectId}/feedback`, userId);
-            // Caminho para o documento principal (para atualizar o resumo)
             const projectRef = doc(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`, projectId);
             
             try {
@@ -67,7 +63,6 @@
                     const projectData = projectDoc.data();
                     let oldVote = voteDoc.exists() ? voteDoc.data() : { rating: 0, reaction: null };
                     
-                    // --- 1. PROCESSAR VOTO/REAÇÃO INDIVIDUAL ---
                     let newVoteData = { ...oldVote };
                     let summaryUpdate = {};
 
@@ -75,42 +70,33 @@
                         const newRating = value;
                         const oldRating = oldVote.rating;
                         
-                        // Atualiza o voto individual
                         newVoteData.rating = newRating;
                         transaction.set(voteRef, newVoteData, { merge: true });
 
-                        // Atualiza o resumo de classificação do projeto (necessário backend/função cloud para média real)
-                        // Para simplificar, faremos uma atualização básica de contagem no campo ratingCount
                         summaryUpdate = {
-                            ratingCount: (projectData.ratingCount || 0) + (oldRating === 0 ? 1 : 0) // Conta apenas o primeiro voto
+                            ratingCount: (projectData.ratingCount || 0) + (oldRating === 0 ? 1 : 0)
                         };
 
                     } else if (type === 'reaction') {
                         const newReaction = value;
                         const oldReaction = oldVote.reaction;
                         
-                        // Não permite reações múltiplas do mesmo tipo. Se for a mesma reação, desfaz.
                         const isReactionToggledOff = (oldReaction === newReaction);
                         const finalReaction = isReactionToggledOff ? null : newReaction;
 
                         newVoteData.reaction = finalReaction;
                         transaction.set(voteRef, newVoteData, { merge: true });
 
-                        // Atualiza o resumo de reações
                         summaryUpdate = {
-                            // Diminui a contagem da reação antiga (se houver)
                             [`reactionCounts.${oldReaction}`]: (projectData.reactionCounts?.[oldReaction] || 0) - (oldReaction && oldReaction !== finalReaction ? 1 : 0),
-                            // Aumenta a contagem da nova reação (se não for nula)
                             [`reactionCounts.${finalReaction}`]: (projectData.reactionCounts?.[finalReaction] || 0) + (finalReaction ? 1 : 0),
                         };
                     }
 
-                    // Remove contagens que fiquem negativas (caso de erro na lógica, embora a regra acima deva evitar)
                     Object.keys(summaryUpdate).forEach(key => {
                         if (summaryUpdate[key] < 0) summaryUpdate[key] = 0;
                     });
                     
-                    // --- 2. APLICA A ATUALIZAÇÃO NO DOCUMENTO PRINCIPAL ---
                     transaction.update(projectRef, summaryUpdate);
                 });
 
@@ -132,10 +118,7 @@
             saveProjectFeedback(projectId, 'reaction', reaction);
         };
         
-        // ... (resto das funções de UI e Firebase Listeners)
-
-        // Funções de UI (showMessage, formatComodosList, renderGallery, setupListeners) permanecem como no código anterior, mas a renderização do modal é alterada abaixo.
-        
+        // --- FUNÇÕES DE UI ---
         const showMessage = (message, type = 'info') => {
             const messageBox = document.getElementById('message-box');
             messageBox.textContent = message;
@@ -164,10 +147,11 @@
         };
 
         const generateDisplayStars = (rating) => {
+            // Estrelas de visualização para o grid e modal
             const fullStars = Math.round(rating); 
             let html = '';
-            const fullStarSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 fill-current text-yellow-400" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.691-.921 1.99 0l1.242 3.824a1 1 0 00.95.691h4.027c.969 0 1.371 1.243.588 1.81L14.71 12.33c-.3.22-.457.536-.457.863v4.027c0 .969-1.243 1.371-1.81.588l-3.824-1.242a1 1 0 00-.691 0L5.94 17.81c-.567.567-1.81.165-1.81-.796v-4.027c0-.327-.157-.643-.457-.863L2.24 9.352c-.783-.567-.381-1.81.588-1.81h4.027c.367 0 .707-.202.95-.588l1.242-3.824z" /></svg>`;
-            const emptyStarSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 fill-current text-gray-500" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M9.049 2.927c.3-.921 1.691-.921 1.99 0l1.242 3.824a1 1 0 00.95.691h4.027c.969 0 1.371 1.243.588 1.81L14.71 12.33c-.3.22-.457.536-.457.863v4.027c0 .969-1.243 1.371-1.81.588l-3.824-1.242a1 1 0 00-.691 0L5.94 17.81c-.567.567-1.81.165-1.81-.796v-4.027c0-.327-.157-.643-.457-.863L2.24 9.352c-.783-.567-.381-1.81.588-1.81h4.027c.367 0 .707-.202.95-.588l1.242-3.824z" /></svg>`;
+            const fullStarSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 fill-current text-yellow-400" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.691-.921 1.99 0l1.242 3.824a1 1 0 00.95.691h4.027c.969 0 1.371 1.243.588 1.81L14.71 12.33c-.3.22-.457.536-.457.863v4.027c0 .969-1.243 1.371-1.81.588l-3.824-1.242a1 1 0 00-.691 0L5.94 17.81c-.567.567-1.81.165-1.81-.796v-4.027c0-.327-.157-.643-.457-.863L2.24 9.352c-.783-.567-.381-1.81.588-1.81h4.027c.367 0 .707-.202.95-.588l1.242-3.824z" /></svg>`;
+            const emptyStarSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 fill-current text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M9.049 2.927c.3-.921 1.691-.921 1.99 0l1.242 3.824a1 1 0 00.95.691h4.027c.969 0 1.371 1.243.588 1.81L14.71 12.33c-.3.22-.457.536-.457.863v4.027c0 .969-1.243 1.371-1.81.588l-3.824-1.242a1 1 0 00-.691 0L5.94 17.81c-.567.567-1.81.165-1.81-.796v-4.027c0-.327-.157-.643-.457-.863L2.24 9.352c-.783-.567-.381-1.81.588-1.81h4.027c.367 0 .707-.202.95-.588l1.242-3.824z" /></svg>`;
 
             for (let i = 1; i <= 5; i++) {
                 html += (i <= fullStars) ? fullStarSvg : emptyStarSvg;
@@ -202,6 +186,12 @@
                         ? projeto.descricaoProjeto.substring(0, 70) + '...' 
                         : projeto.descricaoProjeto;
                     
+                    // --- NOVAS VARIÁVEIS PARA O GRID (Usando dados do Firestore ou 0) ---
+                    const averageRating = projeto.averageRating || 0; 
+                    const reactionCounts = projeto.reactionCounts || {};
+                    const curtirCount = reactionCounts.Curtir || 0; 
+                    const ameiCount = reactionCounts.Amei || 0; 
+                    
                     photoCard.innerHTML = `
                         <div class="w-full h-48 bg-gray-200 rounded-md overflow-hidden">
                             <img src="${previewImage}" alt="${tipoProjeto}" class="w-full h-full object-cover">
@@ -209,8 +199,27 @@
                         <p class="font-bold text-lg text-indigo-700">${tipoProjeto}</p>
                         <p class="text-sm text-gray-600 text-center font-medium">${comodosResumo}</p>
                         <p class="text-xs italic text-gray-500 text-center">${descricaoCurta}</p>
+                        
                         <p class="text-md font-semibold text-green-600">${valorFormatado}</p>
-                    `;
+                        
+                        <div class="flex justify-center items-center space-x-3 text-sm text-gray-500">
+                            
+                            <div class="flex items-center space-x-1">
+                                <span class="font-bold text-xs text-yellow-500">${averageRating.toFixed(1)}</span>
+                                <div class="flex">${generateDisplayStars(averageRating)}</div>
+                            </div>
+                            
+                            <div class="flex items-center space-x-1">
+                                <span class="text-xs">👍</span>
+                                <span class="font-bold text-xs">${curtirCount}</span>
+                            </div>
+
+                             <div class="flex items-center space-x-1">
+                                <span class="text-xs">❤️</span>
+                                <span class="font-bold text-xs">${ameiCount}</span>
+                            </div>
+                        </div>
+                        `;
                     container.appendChild(photoCard);
                 });
             }
@@ -296,7 +305,7 @@
             const linkText = isIdValid ? 'Comprar Projeto' : 'ID do Projeto Ausente';
 
 
-            // --- BLOCO DE CLASSIFICAÇÃO E REAÇÕES COM CONTAGEM ---
+            // --- BLOCO DE CLASSIFICAÇÃO E REAÇÕES COM CONTAGEM (Modal) ---
             const ratingAndReactionHtml = `
                 <div class="mt-4 pt-4 border-t border-gray-700 space-y-4">
                     
