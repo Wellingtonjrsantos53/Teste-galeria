@@ -173,11 +173,13 @@
             } else {
                 state.photos.forEach(projeto => {
                     const photoCard = document.createElement('div');
-                    // NOVO: Adiciona o ID como um atributo de dado no elemento
+                    
+                    // NOVO: Adiciona o ID do documento como um atributo de dado no elemento
                     photoCard.setAttribute('data-project-id', projeto.id);
+                    
                     photoCard.classList.add('bg-white', 'rounded-lg', 'shadow-xl', 'p-4', 'flex', 'flex-col', 'items-center', 'space-y-2', 'cursor-pointer', 'transform', 'hover:scale-[1.03]', 'transition-all');
                     
-                    // NOVO: Chama a nova função 'showModalFromCard', passando o elemento
+                    // NOVO: Chama a nova função 'showModalFromCard', que lê o ID do atributo data
                     photoCard.onclick = (e) => window.showModalFromCard(e.currentTarget);
                     
                     const previewImage = projeto.images && projeto.images.length > 0 ? projeto.images[0].url : 'https://placehold.co/600x400/0095f6/ffffff?text=Projeto';
@@ -260,7 +262,7 @@
             if (docId) {
                 window.showPortfolioImages(docId);
             } else {
-                showMessage('Erro: Não foi possível obter o ID do projeto do cartão.', 'error');
+                showMessage('Erro: ID do projeto não encontrado no cartão.', 'error');
             }
         };
         
@@ -271,6 +273,7 @@
                 return;
             }
             
+            // Busca o projeto no array, usando o ID lido do DOM.
             const portfolioItem = state.photos.find(p => p.id === docId);
             
             if (!portfolioItem || !portfolioItem.images || portfolioItem.images.length === 0) {
@@ -310,6 +313,7 @@
             // --- FIM EXTRAÇÃO ---
             
             // CONSTRUÇÃO DO LINK DE COMPRA (Validado)
+            // Usa o ID, que foi lido do atributo data e buscado no array state.photos
             const isIdValid = !!projectId; 
             const linkHref = isIdValid ? `compra.html?id=${projectId}` : '#';
             const linkClass = isIdValid ? 
