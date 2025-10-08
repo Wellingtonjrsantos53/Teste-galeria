@@ -32,20 +32,11 @@
         
         // --- Funções de Ajuda ---
         
-        // NOVO: LÊ O ID DA URL OU DO LOCALSTORAGE
-        const getProjectIdFromUrlOrStorage = () => {
+        // CORREÇÃO FINAL DE LEITURA DE ID: Lê APENAS da URL
+        const getProjectIdFromUrl = () => {
             const params = new URLSearchParams(window.location.search);
-            
-            // 1. Tenta ler o ID da URL (para compatibilidade)
-            const idFromUrl = params.get('id');
-            if (idFromUrl) {
-                localStorage.setItem('currentProjectId', idFromUrl); // Salva para backup
-                return idFromUrl;
-            }
-
-            // 2. Tenta ler o ID do localStorage (Opção 1)
-            const idFromStorage = localStorage.getItem('currentProjectId');
-            return idFromStorage;
+            // Retorna o valor do parâmetro 'id' ou null se não for encontrado
+            return params.get('id');
         };
 
         const formatComodosList = (listaComodos) => {
@@ -97,7 +88,7 @@
             `;
         };
 
-        // A função principal para gerar o PIX
+        // A função principal para gerar o PIX (Sem alterações)
         window.createPixPayment = async (projeto) => {
             const form = document.getElementById('payerForm');
             const pixOutputContainer = document.getElementById('pix-output-container'); 
@@ -108,13 +99,23 @@
                 return;
             }
 
+            const payerDocumentValue = document.getElementById('payerDocument').value.replace(/\D/g, '');
+
+            // Validação de documento
+            if (payerDocumentValue.length !== 11 && payerDocumentValue.length !== 14) {
+                 pixOutputContainer.innerHTML = `<p class="text-red-500">Erro: CPF/CNPJ deve ter 11 ou 14 dígitos (apenas números).</p>`;
+                 pixOutputContainer.classList.remove('hidden');
+                 btn.disabled = false;
+                 return;
+            }
+            
             const payerData = {
                 email: document.getElementById('payerEmail').value,
                 first_name: document.getElementById('payerFirstName').value,
                 last_name: document.getElementById('payerLastName').value,
                 identification: {
-                    type: 'CPF',
-                    number: document.getElementById('payerDocument').value.replace(/\D/g, '')
+                    type: payerDocumentValue.length === 11 ? 'CPF' : 'CNPJ',
+                    number: payerDocumentValue
                 }
             };
 
@@ -142,7 +143,16 @@
 
                 if (!response.ok) {
                     console.error("Erro HTTP:", response.status, responseText);
-                    pixOutputContainer.innerHTML = `<p class="text-red-500">Erro na API. Status: ${response.status}. Verifique os logs do Vercel.</p>`;
+                    
+                    let errorMessage = `Erro na API. Status: ${response.status}.`;
+                    try {
+                        const errorJson = JSON.parse(responseText);
+                        errorMessage += ` Detalhe: ${errorJson.message || errorJson.error || responseText.substring(0, 100)}`;
+                    } catch {
+                        errorMessage += ` Resposta Bruta: ${responseText.substring(0, 100)}...`;
+                    }
+                    
+                    pixOutputContainer.innerHTML = `<p class="text-red-500">${errorMessage}</p>`;
                     btn.disabled = false;
                     return;
                 }
@@ -232,11 +242,12 @@
         const renderPurchasePage = async (projectId) => {
             const container = document.getElementById('purchase-container');
             
-            // Verificação de ID: Agora verifica se o ID veio do storage/URL
+            // Verificação de ID: Deve ser lido diretamente da URL com a Opção 3
             console.log("Tentativa de buscar ID:", projectId);
 
             if (!projectId) {
-                container.innerHTML = `<p class="text-red-500 text-lg font-bold">ERRO: ID do Projeto não encontrado no local storage. <br>Volte para a galeria e clique no botão 'Comprar'.</p>`;
+                // Mensagem de erro mais clara
+                container.innerHTML = `<p class="text-red-500 text-lg font-bold">ERRO: ID do Projeto não encontrado na URL. <br>Por favor, volte à galeria e clique no botão 'Comprar'.</p>`;
                 return;
             }
 
@@ -335,14 +346,14 @@
             }
         };
 
-        // --- FUNÇÃO PRINCIPAL DE INICIALIZAÇÃO CORRIGIDA ---
+        // --- FUNÇÃO PRINCIPAL DE INICIALIZAÇÃO ---
         const startApp = async () => {
             try {
                 // 1. Autentica anonimamente
                 await signInAnonymously(auth);
 
-                // 2. Tenta obter o ID do storage ou URL
-                const projectId = getProjectIdFromUrlOrStorage();
+                // 2. Obtém o ID (APENAS da URL)
+                const projectId = getProjectIdFromUrl();
                 
                 // 3. Carrega os dados da compra
                 await renderPurchasePage(projectId);
