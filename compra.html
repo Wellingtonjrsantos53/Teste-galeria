@@ -32,9 +32,20 @@
         
         // --- Funções de Ajuda ---
         
-        const getProjectIdFromUrl = () => {
+        // NOVO: LÊ O ID DA URL OU DO LOCALSTORAGE
+        const getProjectIdFromUrlOrStorage = () => {
             const params = new URLSearchParams(window.location.search);
-            return params.get('id');
+            
+            // 1. Tenta ler o ID da URL (para compatibilidade)
+            const idFromUrl = params.get('id');
+            if (idFromUrl) {
+                localStorage.setItem('currentProjectId', idFromUrl); // Salva para backup
+                return idFromUrl;
+            }
+
+            // 2. Tenta ler o ID do localStorage (Opção 1)
+            const idFromStorage = localStorage.getItem('currentProjectId');
+            return idFromStorage;
         };
 
         const formatComodosList = (listaComodos) => {
@@ -221,10 +232,11 @@
         const renderPurchasePage = async (projectId) => {
             const container = document.getElementById('purchase-container');
             
+            // Verificação de ID: Agora verifica se o ID veio do storage/URL
             console.log("Tentativa de buscar ID:", projectId);
 
             if (!projectId) {
-                container.innerHTML = `<p class="text-red-500 text-lg font-bold">ERRO: ID do Projeto não encontrado na URL. <br>Volte para a galeria e clique no botão 'Comprar'.</p>`;
+                container.innerHTML = `<p class="text-red-500 text-lg font-bold">ERRO: ID do Projeto não encontrado no local storage. <br>Volte para a galeria e clique no botão 'Comprar'.</p>`;
                 return;
             }
 
@@ -326,11 +338,13 @@
         // --- FUNÇÃO PRINCIPAL DE INICIALIZAÇÃO CORRIGIDA ---
         const startApp = async () => {
             try {
-                // 1. Autentica anonimamente antes de qualquer busca
+                // 1. Autentica anonimamente
                 await signInAnonymously(auth);
 
-                // 2. Carrega os dados da compra
-                const projectId = getProjectIdFromUrl();
+                // 2. Tenta obter o ID do storage ou URL
+                const projectId = getProjectIdFromUrlOrStorage();
+                
+                // 3. Carrega os dados da compra
                 await renderPurchasePage(projectId);
             } catch (error) {
                 console.error("Erro durante a inicialização/autenticação:", error);
