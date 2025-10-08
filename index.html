@@ -38,7 +38,7 @@
                 await signInAnonymously(auth);
             }
             setupListeners();
-            // REMOVIDO: A remoção do loading agora é feita após o primeiro snapshot (dentro de setupListeners)
+            // A remoção do loading agora é feita dentro do renderGallery para garantir que os dados chegaram.
         });
 
         // --- UI Functions ---
@@ -81,40 +81,42 @@
                         <p class="text-gray-400 mt-2">Adicione novos itens no painel de administração.</p>
                     </div>
                 `;
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('app-container').classList.remove('hidden');
-                return;
+            } else {
+                state.photos.forEach(projeto => {
+                    const photoCard = document.createElement('div');
+                    photoCard.classList.add('bg-white', 'rounded-lg', 'shadow-xl', 'p-4', 'flex', 'flex-col', 'items-center', 'space-y-2', 'cursor-pointer', 'transform', 'hover:scale-[1.03]', 'transition-all');
+                    
+                    // Adicionada verificação de ID aqui para evitar cliques em cartões inválidos, embora o showPortfolioImages tenha uma verificação mais robusta.
+                    const projectIdForClick = projeto.id;
+                    if (projectIdForClick) {
+                        photoCard.onclick = () => window.showPortfolioImages(projectIdForClick);
+                    } else {
+                        photoCard.onclick = () => showMessage('ID do projeto ausente, impossível abrir detalhes.', 'error');
+                    }
+                    
+                    // Pega a primeira imagem para o preview
+                    const previewImage = projeto.images && projeto.images.length > 0 ? projeto.images[0].url : 'https://placehold.co/600x400/0095f6/ffffff?text=Projeto';
+                    
+                    // Novos campos
+                    const tipoProjeto = projeto.tipoProjeto || 'Projeto';
+                    const comodosResumo = formatComodosList(projeto.listaComodos);
+                    const valorFormatado = (projeto.valorProjeto || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    const descricaoCurta = (projeto.descricaoProjeto || '').length > 70 
+                        ? projeto.descricaoProjeto.substring(0, 70) + '...' 
+                        : projeto.descricaoProjeto;
+                    
+                    photoCard.innerHTML = `
+                        <div class="w-full h-48 bg-gray-200 rounded-md overflow-hidden">
+                            <img src="${previewImage}" alt="${tipoProjeto}" class="w-full h-full object-cover">
+                        </div>
+                        <p class="font-bold text-lg text-indigo-700">${tipoProjeto}</p>
+                        <p class="text-sm text-gray-600 text-center font-medium">${comodosResumo}</p>
+                        <p class="text-xs italic text-gray-500 text-center">${descricaoCurta}</p>
+                        <p class="text-md font-semibold text-green-600">${valorFormatado}</p>
+                    `;
+                    container.appendChild(photoCard);
+                });
             }
-            
-            state.photos.forEach(projeto => {
-                const photoCard = document.createElement('div');
-                photoCard.classList.add('bg-white', 'rounded-lg', 'shadow-xl', 'p-4', 'flex', 'flex-col', 'items-center', 'space-y-2', 'cursor-pointer', 'transform', 'hover:scale-[1.03]', 'transition-all');
-                
-                // MANTIDO: O clique que chama o showPortfolioImages
-                photoCard.onclick = () => window.showPortfolioImages(projeto.id);
-                
-                // Pega a primeira imagem para o preview
-                const previewImage = projeto.images && projeto.images.length > 0 ? projeto.images[0].url : 'https://placehold.co/600x400/0095f6/ffffff?text=Projeto';
-                
-                // Novos campos
-                const tipoProjeto = projeto.tipoProjeto || 'Projeto';
-                const comodosResumo = formatComodosList(projeto.listaComodos);
-                const valorFormatado = (projeto.valorProjeto || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                const descricaoCurta = (projeto.descricaoProjeto || '').length > 70 
-                    ? projeto.descricaoProjeto.substring(0, 70) + '...' 
-                    : projeto.descricaoProjeto;
-                
-                photoCard.innerHTML = `
-                    <div class="w-full h-48 bg-gray-200 rounded-md overflow-hidden">
-                        <img src="${previewImage}" alt="${tipoProjeto}" class="w-full h-full object-cover">
-                    </div>
-                    <p class="font-bold text-lg text-indigo-700">${tipoProjeto}</p>
-                    <p class="text-sm text-gray-600 text-center font-medium">${comodosResumo}</p>
-                    <p class="text-xs italic text-gray-500 text-center">${descricaoCurta}</p>
-                    <p class="text-md font-semibold text-green-600">${valorFormatado}</p>
-                `;
-                container.appendChild(photoCard);
-            });
             
             // GARANTIA: Esconde o loading e mostra a aplicação SOMENTE depois da renderização
             document.getElementById('loading').classList.add('hidden');
@@ -126,15 +128,14 @@
                 console.error("Usuário não autenticado. Não é possível configurar o listener do Firestore.");
                 return;
             }
-            
+            // FILTRO CORRIGIDO: Removido 'orderBy' para evitar erro de índice no Firestore.
             const q = query(
                 collection(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`),
                 where('tipoProjeto', '==', 'Projetos prontos')
             );
-            
             onSnapshot(q, (querySnapshot) => {
                 state.photos = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderGallery(); // Chama renderização, que garante a exibição
+                renderGallery();
             }, (error) => {
                 console.error("Erro no listener de snapshot:", error);
                 showMessage('Erro ao carregar projetos. Verifique as permissões.', 'error');
@@ -147,16 +148,16 @@
         
         // --- MODAL DE VISUALIZAÇÃO ---
         window.showPortfolioImages = (docId) => {
-            // CORREÇÃO ROBUSTA: Se docId estiver faltando, mostra mensagem de erro e retorna.
+            // VERIFICAÇÃO ROBUSTA: Se o ID de clique for nulo/inválido, para aqui.
             if (!docId) {
-                console.error("ERRO: ID do documento é nulo ou indefinido.");
+                console.error("ERRO: ID do documento é nulo ou indefinido na chamada do clique.");
                 showMessage('Erro ao carregar detalhes: ID do projeto não encontrado.', 'error');
                 return;
             }
-            
+
             const portfolioItem = state.photos.find(p => p.id === docId);
             
-            // CORREÇÃO ROBUSTA: Se o item não for encontrado (talvez porque a lista ainda não carregou), retorna.
+            // VERIFICAÇÃO ROBUSTA: Se o item não for encontrado (lista desatualizada ou erro), informa.
             if (!portfolioItem || !portfolioItem.images || portfolioItem.images.length === 0) {
                 showMessage('Detalhes ou imagens não encontrados. Tente recarregar a página.', 'info');
                 return;
@@ -181,18 +182,15 @@
             const comodosDetalhe = formatComodosList(portfolioItem.listaComodos);
             const descricaoProjeto = portfolioItem.descricaoProjeto || 'Nenhuma descrição fornecida.';
             
-            const projectId = portfolioItem.id; // Garante que o ID do documento é usado
+            // CORREÇÃO FINAL: O ID do documento é a fonte mais confiável.
+            const projectId = portfolioItem.id; 
             
-            // --- LOG DE DEBUG NO INDEX.HTML ---
-            console.log("INDEX.HTML DEBUG: ID do projeto capturado para o link:", projectId); 
-            // -----------------------------------
-
-            // CORREÇÃO DO LINK: Usa o projectId, que agora está garantido por verificação
+            // CONSTRUÇÃO DO LINK DE COMPRA (Validado)
             const isIdValid = !!projectId; 
             const linkHref = isIdValid ? `compra.html?id=${projectId}` : '#';
             const linkClass = isIdValid ? 
-                              'block mt-4 w-full text-center py-2 px-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold transition-colors shadow-lg' :
-                              'block mt-4 w-full text-center py-2 px-4 rounded-lg bg-gray-400 text-white font-bold cursor-not-allowed';
+                              'block mt-4 w-full w-full text-center py-2 px-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold transition-colors shadow-lg' :
+                              'block mt-4 w-full w-full text-center py-2 px-4 rounded-lg bg-gray-400 text-white font-bold cursor-not-allowed';
             const linkText = isIdValid ? 'Comprar Projeto' : 'ID do Projeto Ausente';
 
 
