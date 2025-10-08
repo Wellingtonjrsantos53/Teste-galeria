@@ -181,7 +181,7 @@
             
             const projectId = portfolioItem.id; // Garante que o ID do documento é usado
             
-            // CORREÇÃO DO LINK: Usa o projectId, que agora está garantido por verificação
+            // CORREÇÃO DO LINK: Cria o link usando o ID do documento do Firestore
             const isIdValid = !!projectId; 
             const linkHref = isIdValid ? `compra.html?id=${projectId}` : '#';
             const linkClass = isIdValid ? 
