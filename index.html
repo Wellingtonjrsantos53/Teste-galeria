@@ -173,9 +173,12 @@
             } else {
                 state.photos.forEach(projeto => {
                     const photoCard = document.createElement('div');
+                    // NOVO: Adiciona o ID como um atributo de dado no elemento
+                    photoCard.setAttribute('data-project-id', projeto.id);
                     photoCard.classList.add('bg-white', 'rounded-lg', 'shadow-xl', 'p-4', 'flex', 'flex-col', 'items-center', 'space-y-2', 'cursor-pointer', 'transform', 'hover:scale-[1.03]', 'transition-all');
                     
-                    photoCard.onclick = () => window.showPortfolioImages(projeto.id);
+                    // NOVO: Chama a nova função 'showModalFromCard', passando o elemento
+                    photoCard.onclick = (e) => window.showModalFromCard(e.currentTarget);
                     
                     const previewImage = projeto.images && projeto.images.length > 0 ? projeto.images[0].url : 'https://placehold.co/600x400/0095f6/ffffff?text=Projeto';
                     
@@ -186,7 +189,7 @@
                         ? projeto.descricaoProjeto.substring(0, 70) + '...' 
                         : projeto.descricaoProjeto;
                     
-                    // --- NOVAS VARIÁVEIS PARA O GRID (Usando dados do Firestore ou 0) ---
+                    // --- VARIÁVEIS PARA O GRID ---
                     const averageRating = projeto.averageRating || 0; 
                     const reactionCounts = projeto.reactionCounts || {};
                     const curtirCount = reactionCounts.Curtir || 0; 
@@ -219,7 +222,7 @@
                                 <span class="font-bold text-xs">${ameiCount}</span>
                             </div>
                         </div>
-                        `;
+                    `;
                     container.appendChild(photoCard);
                 });
             }
@@ -249,6 +252,16 @@
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('app-container').classList.remove('hidden');
             });
+        };
+
+        // NOVA FUNÇÃO: LÊ O ID DO DOM E CHAMA O showPortfolioImages
+        window.showModalFromCard = (cardElement) => {
+            const docId = cardElement.getAttribute('data-project-id');
+            if (docId) {
+                window.showPortfolioImages(docId);
+            } else {
+                showMessage('Erro: Não foi possível obter o ID do projeto do cartão.', 'error');
+            }
         };
         
         window.showPortfolioImages = (docId) => {
@@ -286,7 +299,7 @@
             
             const projectId = portfolioItem.id;
 
-            // --- Extração de Dados de Interatividade (Usando Dados do Firestore) ---
+            // --- Extração de Dados de Interatividade ---
             const reactionCounts = portfolioItem.reactionCounts || {};
             const curtirCount = reactionCounts.Curtir || 0; 
             const ameiCount = reactionCounts.Amei || 0; 
