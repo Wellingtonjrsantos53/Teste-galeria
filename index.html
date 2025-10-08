@@ -8,7 +8,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, onSnapshot, collection, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Importa funções para manipulação de documentos e transações
+        import { getFirestore, onSnapshot, collection, query, where, doc, setDoc, updateDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase Configuration ---
         const firebaseConfig = {
@@ -35,12 +36,106 @@
         
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
+                // Garante que o usuário anônimo está logado para ter um UID para votação
                 await signInAnonymously(auth);
             }
             setupListeners();
         });
 
-        // --- UI Functions ---
+        // --- FUNÇÃO FIREBASE PARA SALVAR FEEDBACK (VOTO ou REAÇÃO) ---
+        const saveProjectFeedback = async (projectId, type, value) => {
+            if (!auth.currentUser || !projectId) {
+                showMessage('Você precisa estar autenticado para interagir com o projeto.', 'error');
+                return;
+            }
+
+            const userId = auth.currentUser.uid;
+            // Caminho para o documento de voto individual
+            const voteRef = doc(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries/${projectId}/feedback`, userId);
+            // Caminho para o documento principal (para atualizar o resumo)
+            const projectRef = doc(db, `artifacts/${firebaseConfig.projectId}/public/data/galleries`, projectId);
+            
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const projectDoc = await transaction.get(projectRef);
+                    const voteDoc = await transaction.get(voteRef);
+                    
+                    if (!projectDoc.exists()) {
+                        throw "Documento do projeto não existe!";
+                    }
+                    
+                    const projectData = projectDoc.data();
+                    let oldVote = voteDoc.exists() ? voteDoc.data() : { rating: 0, reaction: null };
+                    
+                    // --- 1. PROCESSAR VOTO/REAÇÃO INDIVIDUAL ---
+                    let newVoteData = { ...oldVote };
+                    let summaryUpdate = {};
+
+                    if (type === 'rating') {
+                        const newRating = value;
+                        const oldRating = oldVote.rating;
+                        
+                        // Atualiza o voto individual
+                        newVoteData.rating = newRating;
+                        transaction.set(voteRef, newVoteData, { merge: true });
+
+                        // Atualiza o resumo de classificação do projeto (necessário backend/função cloud para média real)
+                        // Para simplificar, faremos uma atualização básica de contagem no campo ratingCount
+                        summaryUpdate = {
+                            ratingCount: (projectData.ratingCount || 0) + (oldRating === 0 ? 1 : 0) // Conta apenas o primeiro voto
+                        };
+
+                    } else if (type === 'reaction') {
+                        const newReaction = value;
+                        const oldReaction = oldVote.reaction;
+                        
+                        // Não permite reações múltiplas do mesmo tipo. Se for a mesma reação, desfaz.
+                        const isReactionToggledOff = (oldReaction === newReaction);
+                        const finalReaction = isReactionToggledOff ? null : newReaction;
+
+                        newVoteData.reaction = finalReaction;
+                        transaction.set(voteRef, newVoteData, { merge: true });
+
+                        // Atualiza o resumo de reações
+                        summaryUpdate = {
+                            // Diminui a contagem da reação antiga (se houver)
+                            [`reactionCounts.${oldReaction}`]: (projectData.reactionCounts?.[oldReaction] || 0) - (oldReaction && oldReaction !== finalReaction ? 1 : 0),
+                            // Aumenta a contagem da nova reação (se não for nula)
+                            [`reactionCounts.${finalReaction}`]: (projectData.reactionCounts?.[finalReaction] || 0) + (finalReaction ? 1 : 0),
+                        };
+                    }
+
+                    // Remove contagens que fiquem negativas (caso de erro na lógica, embora a regra acima deva evitar)
+                    Object.keys(summaryUpdate).forEach(key => {
+                        if (summaryUpdate[key] < 0) summaryUpdate[key] = 0;
+                    });
+                    
+                    // --- 2. APLICA A ATUALIZAÇÃO NO DOCUMENTO PRINCIPAL ---
+                    transaction.update(projectRef, summaryUpdate);
+                });
+
+                showMessage(`Sua ${type === 'rating' ? 'classificação' : 'reação'} foi registrada com sucesso!`, 'success');
+
+            } catch (e) {
+                console.error("Erro na transação de feedback:", e);
+                showMessage('Falha ao salvar seu feedback. Tente novamente.', 'error');
+            }
+        };
+
+
+        // --- FUNÇÕES DE INTERAÇÃO (CHAMAM A FUNÇÃO FIREBASE) ---
+        window.rateProject = (projectId, rating) => {
+            saveProjectFeedback(projectId, 'rating', rating);
+        };
+
+        window.reactToProject = (projectId, reaction) => {
+            saveProjectFeedback(projectId, 'reaction', reaction);
+        };
+        
+        // ... (resto das funções de UI e Firebase Listeners)
+
+        // Funções de UI (showMessage, formatComodosList, renderGallery, setupListeners) permanecem como no código anterior, mas a renderização do modal é alterada abaixo.
+        
         const showMessage = (message, type = 'info') => {
             const messageBox = document.getElementById('message-box');
             messageBox.textContent = message;
@@ -61,7 +156,6 @@
             }, 3000);
         };
         
-        // Função para formatar a lista de cômodos
         const formatComodosList = (listaComodos) => {
             if (!listaComodos || listaComodos.length === 0) {
                 return 'N/A';
@@ -69,14 +163,10 @@
             return listaComodos.map(item => `${item.comodo} (${item.quantidade})`).join(', ');
         };
 
-        // NOVO: Função para gerar o HTML das estrelas de visualização (display)
         const generateDisplayStars = (rating) => {
-            // Arredonda para o número inteiro mais próximo para preencher estrelas cheias
             const fullStars = Math.round(rating); 
             let html = '';
-            // Estrela cheia (amarela)
             const fullStarSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 fill-current text-yellow-400" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.691-.921 1.99 0l1.242 3.824a1 1 0 00.95.691h4.027c.969 0 1.371 1.243.588 1.81L14.71 12.33c-.3.22-.457.536-.457.863v4.027c0 .969-1.243 1.371-1.81.588l-3.824-1.242a1 1 0 00-.691 0L5.94 17.81c-.567.567-1.81.165-1.81-.796v-4.027c0-.327-.157-.643-.457-.863L2.24 9.352c-.783-.567-.381-1.81.588-1.81h4.027c.367 0 .707-.202.95-.588l1.242-3.824z" /></svg>`;
-            // Estrela vazia (cinza)
             const emptyStarSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 fill-current text-gray-500" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M9.049 2.927c.3-.921 1.691-.921 1.99 0l1.242 3.824a1 1 0 00.95.691h4.027c.969 0 1.371 1.243.588 1.81L14.71 12.33c-.3.22-.457.536-.457.863v4.027c0 .969-1.243 1.371-1.81.588l-3.824-1.242a1 1 0 00-.691 0L5.94 17.81c-.567.567-1.81.165-1.81-.796v-4.027c0-.327-.157-.643-.457-.863L2.24 9.352c-.783-.567-.381-1.81.588-1.81h4.027c.367 0 .707-.202.95-.588l1.242-3.824z" /></svg>`;
 
             for (let i = 1; i <= 5; i++) {
@@ -152,19 +242,6 @@
             });
         };
         
-        // Função placeholder para manipulação das estrelas
-        window.rateProject = (projectId, rating) => {
-            showMessage(`Você classificou o projeto ${projectId.substring(0, 4)}... com ${rating} estrelas! (Lógica de salvamento necessária)`, 'info');
-            // FUTURO: Implementar a lógica para salvar a classificação no Firestore
-        };
-
-        // Função placeholder para manipulação das reações
-        window.reactToProject = (projectId, reaction) => {
-            showMessage(`Você reagiu ao projeto ${projectId.substring(0, 4)}... com ${reaction}! (Lógica de salvamento necessária)`, 'info');
-            // FUTURO: Implementar a lógica para salvar a reação no Firestore
-        };
-        
-        // --- MODAL DE VISUALIZAÇÃO ---
         window.showPortfolioImages = (docId) => {
             if (!docId) {
                 console.error("ERRO: ID do documento é nulo ou indefinido.");
@@ -199,19 +276,17 @@
             const descricaoProjeto = portfolioItem.descricaoProjeto || 'Nenhuma descrição fornecida.';
             
             const projectId = portfolioItem.id;
-            
-            // --- NOVO: Extração de Dados de Interatividade (Placeholders para o UI) ---
-            // ATENÇÃO: Use portfolioItem.reactionCounts e portfolioItem.rating quando o Firebase estiver atualizado.
+
+            // --- Extração de Dados de Interatividade (Usando Dados do Firestore) ---
             const reactionCounts = portfolioItem.reactionCounts || {};
-            const curtirCount = reactionCounts.curtir || 15; 
-            const ameiCount = reactionCounts.amei || 5; 
-            const descurtirCount = reactionCounts.descurtir || 2; 
+            const curtirCount = reactionCounts.Curtir || 0; 
+            const ameiCount = reactionCounts.Amei || 0; 
+            const descurtirCount = reactionCounts.Descurtir || 0; 
 
-            const ratingData = portfolioItem.rating || {};
-            const averageRating = ratingData.average || 4.2; 
-            const ratingCount = ratingData.count || 25; 
-            // --- FIM NOVO ---
-
+            const averageRating = portfolioItem.averageRating || 0; 
+            const ratingCount = portfolioItem.ratingCount || 0; 
+            // --- FIM EXTRAÇÃO ---
+            
             // CONSTRUÇÃO DO LINK DE COMPRA (Validado)
             const isIdValid = !!projectId; 
             const linkHref = isIdValid ? `compra.html?id=${projectId}` : '#';
@@ -221,7 +296,7 @@
             const linkText = isIdValid ? 'Comprar Projeto' : 'ID do Projeto Ausente';
 
 
-            // --- NOVO BLOCO DE CLASSIFICAÇÃO E REAÇÕES COM CONTAGEM ---
+            // --- BLOCO DE CLASSIFICAÇÃO E REAÇÕES COM CONTAGEM ---
             const ratingAndReactionHtml = `
                 <div class="mt-4 pt-4 border-t border-gray-700 space-y-4">
                     
@@ -266,10 +341,10 @@
                     </div>
                 </div>
             `;
-            // --- FIM NOVO BLOCO ---
+            // --- FIM BLOCO DE INTERAÇÃO ---
 
 
-            // Monta o HTML com os detalhes, o BOTÃO DE COMPRA E A NOVA INTERATIVIDADE
+            // Monta o HTML final
             const detailsHtml = `
                 <div class="space-y-3">
                     <div class="flex flex-wrap gap-x-4">
