@@ -1,8 +1,8 @@
-// [create_payment.js] - Função Serverless pura
+// [create_payment.js] - Função Serverless FINAL CORRIGIDA
 
 const { MercadoPagoConfig, Payment } = require('mercadopago');
 
-// --- LEITURA DO TOKEN DE AMBIENTE ---
+// --- LEITURA DO TOKEN DE AMBIENTE (Fora da função exportada) ---
 const ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN; 
 
 const client = new MercadoPagoConfig({
@@ -13,18 +13,20 @@ const paymentService = new Payment(client);
 // O Vercel usa esta função exportada como ponto de entrada da API
 module.exports = async (req, res) => {
     
-    // Configuração CORS (Essencial para comunicação no Vercel)
+    // --- 1. CONFIGURAÇÃO CORS E OPTIONS (DEVE SER EXECUTADA PRIMEIRO) ---
     res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
+        // Se for um pré-voo CORS, responde 200 OK imediatamente.
         return res.status(200).end();
     }
 
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
     }
+    // --- FIM CONFIGURAÇÃO CORS ---
 
     try {
         // O corpo da requisição POST já vem como JSON no Vercel
@@ -55,11 +57,15 @@ module.exports = async (req, res) => {
     } catch (error) {
         console.error('Erro fatal ao criar pagamento PIX:', error);
         
+        // --- SEGUNDA CAUSA MAIS PROVÁVEL: ERRO DE TOKEN MP ---
+        if (error.status === 401) {
+             return res.status(401).json({ error: 'Erro de Autenticação na API do Mercado Pago. Verifique seu ACCESS_TOKEN.' });
+        }
+        
         const mpError = error.cause && error.cause.length > 0 ? error.cause[0] : null;
 
         res.status(500).json({
             success: false,
-            // Retorna o erro detalhado do Mercado Pago para depuração
             error: mpError ? `MP_ERROR ${mpError.code}: ${mpError.description}` : 'Erro interno ao processar o pagamento'
         });
     }
