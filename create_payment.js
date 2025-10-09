@@ -1,25 +1,31 @@
-// [create_payment.js] - Função Serverless FINAL CORRIGIDA
+// [create_payment.js] - Função Serverless FINAL E DIAGNÓSTICA
 
 const { MercadoPagoConfig, Payment } = require('mercadopago');
 
-// --- LEITURA DO TOKEN DE AMBIENTE (Fora da função exportada) ---
+// --- LEITURA DO TOKEN DE AMBIENTE ---
 const ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN; 
 
-const client = new MercadoPagoConfig({
-    accessToken: ACCESS_TOKEN,
-});
-const paymentService = new Payment(client);
+let client;
+let paymentService;
+
+// VERIFICAÇÃO CRÍTICA: Inicializa o cliente APENAS se o token estiver presente.
+if (ACCESS_TOKEN) {
+    client = new MercadoPagoConfig({
+        accessToken: ACCESS_TOKEN,
+    });
+    paymentService = new Payment(client);
+}
+
 
 // O Vercel usa esta função exportada como ponto de entrada da API
 module.exports = async (req, res) => {
     
-    // --- 1. CONFIGURAÇÃO CORS E OPTIONS (DEVE SER EXECUTADA PRIMEIRO) ---
+    // --- 1. CONFIGURAÇÃO CORS E OPTIONS ---
     res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
-        // Se for um pré-voo CORS, responde 200 OK imediatamente.
         return res.status(200).end();
     }
 
@@ -28,11 +34,19 @@ module.exports = async (req, res) => {
     }
     // --- FIM CONFIGURAÇÃO CORS ---
 
+    // --- 2. VERIFICAÇÃO DE FALHA DO CLIENTE ---
+    if (!ACCESS_TOKEN || !paymentService) {
+        console.error("ERRO CRÍTICO: MP_ACCESS_TOKEN está faltando ou falhou na inicialização.");
+        return res.status(500).json({ 
+            error: 'Falha na Inicialização da API de Pagamento. Verifique a variável de ambiente MP_ACCESS_TOKEN no Vercel.',
+            code: 'TOKEN_MISSING' 
+        });
+    }
+    // --- FIM VERIFICAÇÃO ---
+
     try {
-        // O corpo da requisição POST já vem como JSON no Vercel
         const { transaction_amount, description, payer, payment_method_id } = req.body; 
 
-        // VALIDAÇÃO E CRIAÇÃO DO OBJETO DE PAGAMENTO
         if (!transaction_amount || !payer || payment_method_id !== 'pix') {
             return res.status(400).json({ error: 'Dados da transação incompletos ou inválidos.' });
         }
@@ -46,7 +60,7 @@ module.exports = async (req, res) => {
 
         const result = await paymentService.create({ body: paymentData });
         
-        // SUCESSO: Retorna os dados
+        // SUCESSO
         res.status(200).json({
             success: true,
             qr_code_base64: result.point_of_interaction?.transaction_data?.qr_code_base64,
@@ -57,7 +71,6 @@ module.exports = async (req, res) => {
     } catch (error) {
         console.error('Erro fatal ao criar pagamento PIX:', error);
         
-        // --- SEGUNDA CAUSA MAIS PROVÁVEL: ERRO DE TOKEN MP ---
         if (error.status === 401) {
              return res.status(401).json({ error: 'Erro de Autenticação na API do Mercado Pago. Verifique seu ACCESS_TOKEN.' });
         }
