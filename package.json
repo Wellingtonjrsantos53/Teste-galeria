@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "vercel-build": "echo 'Building static files...' && cp *.html dist/ 2>/dev/null || true"
+    "vercel-build": "echo 'Skipping unnecessary build step and copying static files to root...' && cp *.html ./"
   },
   "keywords": [],
   "author": "",
