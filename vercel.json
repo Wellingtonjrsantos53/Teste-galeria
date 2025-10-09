@@ -10,7 +10,10 @@
     },
     { 
       "src": "create_payment.js", 
-      "use": "@vercel/node" 
+      "use": "@vercel/node",
+      "config": {
+        "excludeFiles": ["*.html", "compra.html", "index.html", "Painel ultima versao.html"]
+      }
     }
   ],
   "routes": [
@@ -28,6 +31,14 @@
     {
       "src": "/compra.html",
       "dest": "/compra.html"
+    },
+    {
+      "src": "/agradecimento.html",
+      "dest": "/agradecimento.html"
+    },
+    {
+      "src": "/Painel ultima versao.html",
+      "dest": "/Painel ultima versao.html"
     },
     {
       "src": "/(.*)",
