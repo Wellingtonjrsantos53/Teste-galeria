@@ -2,17 +2,10 @@
   "version": 2,
   "builds": [
     { 
-      "src": "package.json", 
-      "use": "@vercel/static-build",
-      "config": {
-        "outputDirectory": ""
-      }
-    },
-    { 
       "src": "create_payment.js", 
       "use": "@vercel/node",
       "config": {
-        "excludeFiles": ["*.html", "compra.html", "index.html", "Painel ultima versao.html", "agradecimento.html"]
+        "excludeFiles": ["*.html"] 
       }
     }
   ],
