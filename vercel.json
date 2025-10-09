@@ -2,18 +2,15 @@
   "version": 2,
   "builds": [
     { 
-      "src": "package.json", 
+      "src": "*.html", 
       "use": "@vercel/static-build",
       "config": {
-        "outputDirectory": "."
+        "distDir": "."
       }
     },
     { 
-      "src": "create_payment.js", 
-      "use": "@vercel/node",
-      "config": {
-        "excludeFiles": ["*.html"] 
-      }
+      "src": "api/create_payment.js", /* NOVO CAMINHO */
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -23,7 +20,7 @@
         "POST",
         "OPTIONS"
       ],
-      "dest": "/create_payment.js"
+      "dest": "/api/create_payment.js" /* NOVO DESTINO */
     },
     {
       "src": "/",
