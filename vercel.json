@@ -2,14 +2,7 @@
   "version": 2,
   "builds": [
     { 
-      "src": "package.json", 
-      "use": "@vercel/static-build",
-      "config": {
-        "outputDirectory": ""
-      }
-    },
-    { 
-      "src": "api/create_payment.js", 
+      "src": "api/create_payment.js", /* Assume que create_payment.js está na pasta /api/ */
       "use": "@vercel/node"
     }
   ],
