@@ -2,16 +2,11 @@
   "version": 2,
   "builds": [
     { 
-      "src": "index.html", 
-      "use": "@vercel/static-build" 
-    },
-    { 
-      "src": "compra.html", 
-      "use": "@vercel/static-build" 
-    },
-    { 
-      "src": "Painel ultima versao.html", 
-      "use": "@vercel/static-build" 
+      "src": "*.html", 
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "."
+      }
     },
     { 
       "src": "create_payment.js", 
