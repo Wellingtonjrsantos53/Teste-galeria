@@ -2,7 +2,14 @@
   "version": 2,
   "builds": [
     { 
-      "src": "api/create_payment.js", /* Assume que create_payment.js está na pasta /api/ */
+      "src": "*.html", /* Define explicitamente o build de arquivos estáticos */
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "."
+      }
+    },
+    { 
+      "src": "api/create_payment.js", /* Define o build da função Serverless */
       "use": "@vercel/node"
     }
   ],
