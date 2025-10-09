@@ -22,8 +22,7 @@
       "methods": [
         "POST"
       ],
-      "dest": "/create_payment.js"  
-      /* CORREÇÃO APLICADA: O destino agora aponta diretamente para o ARQUIVO .js */
+      "dest": "/create_payment.js"
     },
     {
       "src": "/",
