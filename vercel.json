@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     { 
-      "src": "*.html", /* Define explicitamente o build de arquivos estáticos */
+      "src": "*.html", 
       "use": "@vercel/static-build",
       "config": {
         "distDir": "."
       }
     },
     { 
-      "src": "api/create_payment.js", /* Define o build da função Serverless */
+      "src": "api/create_payment.js", 
       "use": "@vercel/node"
     }
   ],
