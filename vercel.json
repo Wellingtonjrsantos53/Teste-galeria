@@ -20,7 +20,8 @@
     {
       "src": "/create_payment",
       "methods": [
-        "POST"
+        "POST",
+        "OPTIONS" /* CORREÇÃO PARA O ERRO 405 */
       ],
       "dest": "/create_payment.js"
     },
