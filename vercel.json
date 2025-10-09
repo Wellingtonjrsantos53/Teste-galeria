@@ -17,11 +17,32 @@
     }
   ],
   "routes": [
-    // ... (restante das rotas) ...
+    {
+      "src": "/create_payment",
+      "methods": [
+        "POST"
+      ],
+      "dest": "/create_payment"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/compra.html",
+      "dest": "/compra.html"
+    },
     {
       "src": "/agradecimento.html",
       "dest": "/agradecimento.html"
     },
-    // ...
+    {
+      "src": "/Painel ultima versao.html",
+      "dest": "/Painel ultima versao.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1" 
+    }
   ]
 }
