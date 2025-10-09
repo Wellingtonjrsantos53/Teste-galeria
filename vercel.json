@@ -12,37 +12,16 @@
       "src": "create_payment.js", 
       "use": "@vercel/node",
       "config": {
-        "excludeFiles": ["*.html", "compra.html", "index.html", "Painel ultima versao.html"]
+        "excludeFiles": ["*.html", "compra.html", "index.html", "Painel ultima versao.html", "agradecimento.html"]
       }
     }
   ],
   "routes": [
-    {
-      "src": "/create_payment",
-      "methods": [
-        "POST"
-      ],
-      "dest": "/create_payment"
-    },
-    {
-      "src": "/",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/compra.html",
-      "dest": "/compra.html"
-    },
+    // ... (restante das rotas) ...
     {
       "src": "/agradecimento.html",
       "dest": "/agradecimento.html"
     },
-    {
-      "src": "/Painel ultima versao.html",
-      "dest": "/Painel ultima versao.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1" 
-    }
+    // ...
   ]
 }
