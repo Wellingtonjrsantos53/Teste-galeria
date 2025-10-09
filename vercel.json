@@ -2,10 +2,17 @@
   "version": 2,
   "builds": [
     { 
+      "src": "*.html", 
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "."
+      }
+    },
+    { 
       "src": "create_payment.js", 
       "use": "@vercel/node",
       "config": {
-        "excludeFiles": ["*.html"] 
+        "excludeFiles": ["*.html", "compra.html", "index.html", "Painel ultima versao.html", "agradecimento.html"]
       }
     }
   ],
@@ -15,7 +22,8 @@
       "methods": [
         "POST"
       ],
-      "dest": "/create_payment"
+      "dest": "/create_payment.js"  
+      /* CORREÇÃO APLICADA: O destino agora aponta diretamente para o ARQUIVO .js */
     },
     {
       "src": "/",
