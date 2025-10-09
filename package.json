@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "vercel-build": "echo 'Skipping unnecessary build step and copying static files to root...' && cp *.html ./"
+    "vercel-build": "echo 'Static build successful. HTML files are in the root.'"
   },
   "keywords": [],
   "author": "",
