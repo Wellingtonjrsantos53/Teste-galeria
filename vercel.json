@@ -5,7 +5,7 @@
       "src": "package.json", 
       "use": "@vercel/static-build",
       "config": {
-        "outputDirectory": ""
+        "outputDirectory": "."  /* MUDANÇA CRÍTICA: Diz ao Vercel que a saída é a raiz */
       }
     },
     { 
@@ -17,6 +17,7 @@
     }
   ],
   "routes": [
+    /* ... (Rotas permanecem as mesmas) ... */
     {
       "src": "/create_payment",
       "methods": [
