@@ -23,7 +23,7 @@
         "POST",
         "OPTIONS"
       ],
-      "dest": "/create_payment.js"
+      "dest": "/create_payment.js" /* Destino absoluto para o arquivo Serverless */
     },
     {
       "src": "/",

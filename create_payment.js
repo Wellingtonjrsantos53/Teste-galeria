@@ -8,7 +8,7 @@ const ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 let client;
 let paymentService;
 
-// VERIFICAÇÃO CRÍTICA: Inicializa o cliente APENAS se o token estiver presente.
+// Inicializa o cliente APENAS se o token estiver presente (VERIFICAÇÃO DE SEGURANÇA)
 if (ACCESS_TOKEN) {
     client = new MercadoPagoConfig({
         accessToken: ACCESS_TOKEN,
@@ -20,12 +20,13 @@ if (ACCESS_TOKEN) {
 // O Vercel usa esta função exportada como ponto de entrada da API
 module.exports = async (req, res) => {
     
-    // --- 1. CONFIGURAÇÃO CORS E OPTIONS ---
+    // --- 1. CONFIGURAÇÃO CORS E OPTIONS (DEVE SER EXECUTADA PRIMEIRO) ---
     res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
+        // Se for um pré-voo CORS, responde 200 OK imediatamente.
         return res.status(200).end();
     }
 
